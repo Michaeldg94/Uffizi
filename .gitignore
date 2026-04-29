@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+
+# Virtual environments
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+.DS_Store
+
+# Build artifacts
+build/
+dist/
+*.egg-info/
+
+# Pipeline outputs are committed so mates can see results without running.
+# Regenerate them with: uv run python run_project.py
+# outputs/
+
+# LaTeX build artifacts (course notes, if added)
+*.aux
+*.log
+*.toc
+*.out

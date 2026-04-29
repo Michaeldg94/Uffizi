@@ -1,0 +1,88 @@
+{
+  "phase0_capacity": {
+    "daily_visitors": 5000.0,
+    "avg_duration_min": 91.62162162162163,
+    "visitor_minutes": 458108.10810810816,
+    "avg_occupancy": 744.8912326961108,
+    "capacity": 900.0,
+    "within_capacity_on_average": 1.0
+  },
+  "graph_validation": {
+    "connected": true,
+    "corridors_have_high_degree": true,
+    "botticelli_forced_chain_ok": true,
+    "all_rooms_reachable_from_entry": true,
+    "all_pass": true
+  },
+  "calibration_5_days": {
+    "capacity_violations_mean": 0.0,
+    "capacity_violations_std": 0.0,
+    "completed_visitors_mean": 4834.16,
+    "completed_visitors_std": 26.190323809080517,
+    "experience_engagement_depth_mean": 0.5642384468731112,
+    "experience_engagement_depth_std": 0.0030504988981395987,
+    "experience_intimacy_mean": 0.546437149698583,
+    "experience_intimacy_std": 0.020646337638690296,
+    "experience_narrative_coherence_mean": 0.035160887856088195,
+    "experience_narrative_coherence_std": 0.0022894630723787096,
+    "experience_quality_mean": 1.9673660190364353,
+    "experience_quality_std": 0.020547993554543745,
+    "experience_surprise_mean": 0.8215295346086525,
+    "experience_surprise_std": 0.0013259796456200458,
+    "mean_inside_mean": 808.2990894308944,
+    "mean_inside_std": 2.3761163864031962,
+    "peak_botticelli_density_mean": 1.629818181818182,
+    "peak_botticelli_density_std": 0.10895229288614158,
+    "peak_inside_mean": 900.0,
+    "peak_inside_std": 0.0,
+    "queue_peak_mean": 2411.96,
+    "queue_peak_std": 68.64310539571579,
+    "revenue_mean": 0.0,
+    "revenue_std": 0.0,
+    "type_a_completed_mean": 1420.78,
+    "type_a_completed_std": 34.873116948650946,
+    "type_b_completed_mean": 3413.38,
+    "type_b_completed_std": 40.446432198044626,
+    "n_days": 50.0
+  },
+  "env_random_rollout": {
+    "steps": 180,
+    "total_reward": 33.80694197082394,
+    "terminated": false,
+    "truncated": true
+  },
+  "top_avg_density_rooms": [
+    [
+      "A1",
+      2.0553658536585333
+    ],
+    [
+      "A17",
+      1.5788617886178868
+    ],
+    [
+      "A16",
+      1.382816963304767
+    ],
+    [
+      "A15",
+      1.163558106169299
+    ],
+    [
+      "A8",
+      1.1102564102564112
+    ],
+    [
+      "A10",
+      1.1036954915003703
+    ],
+    [
+      "A21",
+      1.014560236511455
+    ],
+    [
+      "A12",
+      1.006977087952698
+    ]
+  ]
+}
