@@ -389,3 +389,369 @@ def plot_phase_transition(records: Sequence[Dict[str, float]], x_key: str, out_p
     plt.legend(loc="best", frameon=False)
     _save_figure(out)
     return True
+
+
+# =============================================================================
+# Extended plot library: per-phase visualizations for the course report.
+# Added to give the professor many figures per lecture topic. Each function
+# is independent and degrades gracefully if matplotlib is unavailable.
+# =============================================================================
+
+def plot_room_capacity_distribution(rooms_data: Sequence[Dict], out_path: str) -> bool:
+    """Histogram of room capacities across the 98-room museum."""
+
+    if not HAS_PLOT:
+        return False
+    out = Path(out_path)
+    _apply_theme()
+    caps = [r["capacity"] for r in rooms_data]
+    plt.figure(figsize=(10, 5))
+    plt.hist(caps, bins=20, color="#1F4E5F", edgecolor="white", alpha=0.85)
+    plt.axvline(np.mean(caps), color="#B14D4D", linestyle="--",
+                label=f"Mean = {np.mean(caps):.1f}")
+    plt.axvline(np.median(caps), color="#8B6F47", linestyle=":",
+                label=f"Median = {np.median(caps):.0f}")
+    plt.xlabel("Room Capacity (visitors)")
+    plt.ylabel("Number of Rooms")
+    plt.title("Distribution of Room Capacities (98-Room Museum)")
+    plt.legend(loc="upper right", frameon=False)
+    _save_figure(out)
+    return True
+
+
+def plot_top_congested_rooms(room_density_pairs: Sequence, out_path: str,
+                              top_n: int = 15) -> bool:
+    """Horizontal bar chart of the most congested rooms (mean density)."""
+
+    if not HAS_PLOT:
+        return False
+    out = Path(out_path)
+    _apply_theme()
+    top = list(room_density_pairs)[:top_n]
+    rooms = [p[0] for p in top]
+    dens = [p[1] for p in top]
+    colors = ["#B14D4D" if d > 1.0 else "#D49B6C" if d > 0.5 else "#1F4E5F" for d in dens]
+    plt.figure(figsize=(10, 6))
+    plt.barh(rooms[::-1], dens[::-1], color=colors[::-1], edgecolor="white")
+    plt.axvline(1.0, color="black", linestyle="--", alpha=0.6,
+                label="Capacity (density = 1.0)")
+    plt.xlabel("Mean Density (occupancy / capacity)")
+    plt.ylabel("Room")
+    plt.title(f"Top {top_n} Most Congested Rooms")
+    plt.legend(loc="lower right", frameon=False)
+    _save_figure(out)
+    return True
+
+
+def plot_arrival_envelope(out_path: str, peak_minutes: int = 135,
+                           sigma_minutes: int = 90, last_entry: int = 555,
+                           total_minutes: int = 615) -> bool:
+    """Plot the Gaussian arrival envelope used by the simulator."""
+
+    if not HAS_PLOT:
+        return False
+    out = Path(out_path)
+    _apply_theme()
+    t = np.arange(0, total_minutes)
+    envelope = np.exp(-0.5 * ((t - peak_minutes) / sigma_minutes) ** 2)
+    envelope[t > last_entry] = 0.0
+    plt.figure(figsize=(11, 4.5))
+    plt.plot(t / 60.0 + 8.25, envelope, color="#1F4E5F", linewidth=2)
+    plt.fill_between(t / 60.0 + 8.25, 0, envelope, alpha=0.2, color="#1F4E5F")
+    plt.axvline(8.25 + last_entry / 60, color="#B14D4D", linestyle="--",
+                label="Last entry (17:30)")
+    plt.axvline(8.25 + peak_minutes / 60, color="#8B6F47", linestyle=":",
+                label="Peak (10:30)")
+    plt.xlabel("Time of Day (24h)")
+    plt.ylabel("Relative Arrival Rate")
+    plt.title("Daily Visitor Arrival Envelope (Gaussian)")
+    plt.legend(loc="upper right", frameon=False)
+    plt.grid(alpha=0.3)
+    _save_figure(out)
+    return True
+
+
+def plot_visitors_inside_over_day(density_matrix: np.ndarray,
+                                   capacities: Sequence[float],
+                                   out_path: str) -> bool:
+    """Plot total visitors inside the museum minute by minute over one day."""
+
+    if not HAS_PLOT:
+        return False
+    out = Path(out_path)
+    _apply_theme()
+    caps = np.asarray(capacities, dtype=float)
+    visitors = (density_matrix * caps[None, :]).sum(axis=1)
+    t = np.arange(len(visitors))
+    hours = t / 60.0 + 8.25
+    plt.figure(figsize=(11, 4.5))
+    plt.plot(hours, visitors, color="#1F4E5F", linewidth=1.8)
+    plt.fill_between(hours, 0, visitors, alpha=0.15, color="#1F4E5F")
+    plt.axhline(900, color="#B14D4D", linestyle="--",
+                label="Fire-safety capacity (900)")
+    plt.xlabel("Time of Day (24h)")
+    plt.ylabel("Total Visitors Inside Museum")
+    plt.title("Museum Occupancy Throughout One Day")
+    plt.legend(loc="upper right", frameon=False)
+    plt.grid(alpha=0.3)
+    _save_figure(out)
+    return True
+
+
+def plot_baseline_comparison(baselines: Sequence[Dict], q_learning_return: float,
+                              out_path: str) -> bool:
+    """Bar chart: Q-learning vs each of the 5 baseline policies."""
+
+    if not HAS_PLOT:
+        return False
+    out = Path(out_path)
+    _apply_theme()
+    names = [b["name"] for b in baselines] + ["q_learning"]
+    returns = [b["mean_return"] for b in baselines] + [q_learning_return]
+    colors = ["#8B6F47"] * len(baselines) + ["#1F4E5F"]
+    plt.figure(figsize=(10, 5))
+    bars = plt.bar(names, returns, color=colors, edgecolor="white")
+    for bar, val in zip(bars, returns):
+        plt.text(bar.get_x() + bar.get_width() / 2, val + max(returns) * 0.01,
+                 f"{val:.1f}", ha="center", fontsize=9)
+    plt.xlabel("Policy")
+    plt.ylabel("Mean Episode Return")
+    plt.title("Q-Learning vs Handcrafted Baselines (12-Room Toy Graph)")
+    plt.xticks(rotation=20, ha="right")
+    plt.grid(alpha=0.3, axis="y")
+    _save_figure(out)
+    return True
+
+
+def plot_offpeak_botticelli(offpeak_visits: Sequence[int], out_path: str) -> bool:
+    """Off-peak Botticelli visits per episode (temporal arbitrage discovery)."""
+
+    if not HAS_PLOT:
+        return False
+    out = Path(out_path)
+    _apply_theme()
+    y = np.asarray(offpeak_visits, dtype=float)
+    x = np.arange(len(y))
+    plt.figure(figsize=(11, 4.5))
+    plt.plot(x, y, alpha=0.25, color="#8B6F47", linewidth=0.8, label="Per episode")
+    if len(y) >= 100:
+        w = 100
+        rolling = np.convolve(y, np.ones(w) / w, mode="valid")
+        plt.plot(np.arange(w - 1, len(y)), rolling, color="#1F4E5F",
+                 linewidth=2.0, label=f"{w}-episode rolling mean")
+    plt.xlabel("Episode")
+    plt.ylabel("Off-Peak Botticelli Visits")
+    plt.title("Temporal Arbitrage: Visiting Botticelli When the Crowd Is Low")
+    plt.legend(loc="best", frameon=False)
+    plt.grid(alpha=0.3)
+    _save_figure(out)
+    return True
+
+
+def plot_episode_length_evolution(episode_lengths: Sequence[int], out_path: str) -> bool:
+    """Plot episode length over training."""
+
+    if not HAS_PLOT:
+        return False
+    out = Path(out_path)
+    _apply_theme()
+    y = np.asarray(episode_lengths, dtype=float)
+    x = np.arange(len(y))
+    plt.figure(figsize=(11, 4.5))
+    plt.plot(x, y, alpha=0.3, color="#8B6F47", linewidth=0.6, label="Per episode")
+    if len(y) >= 100:
+        w = 100
+        rolling = np.convolve(y, np.ones(w) / w, mode="valid")
+        plt.plot(np.arange(w - 1, len(y)), rolling, color="#1F4E5F",
+                 linewidth=2.0, label=f"{w}-episode rolling mean")
+    plt.xlabel("Episode")
+    plt.ylabel("Episode Length (steps)")
+    plt.title("Episode Length Evolution During Q-Learning")
+    plt.legend(loc="best", frameon=False)
+    plt.grid(alpha=0.3)
+    _save_figure(out)
+    return True
+
+
+def plot_epsilon_decay(out_path: str, episodes: int = 25000,
+                        eps_init: float = 1.0, eps_min: float = 0.01,
+                        decay: float = 0.9995) -> bool:
+    """Plot the epsilon-greedy exploration schedule over training."""
+
+    if not HAS_PLOT:
+        return False
+    out = Path(out_path)
+    _apply_theme()
+    eps = np.maximum(eps_min, eps_init * decay ** np.arange(episodes))
+    plt.figure(figsize=(10, 4.5))
+    plt.plot(eps, color="#1F4E5F", linewidth=2)
+    plt.fill_between(np.arange(episodes), eps_min, eps, alpha=0.2, color="#1F4E5F")
+    plt.axhline(eps_min, color="#B14D4D", linestyle="--", label=f"eps_min = {eps_min}")
+    plt.xlabel("Episode")
+    plt.ylabel("Exploration Rate (epsilon)")
+    plt.title("Epsilon-Greedy Decay Schedule")
+    plt.legend(loc="upper right", frameon=False)
+    plt.grid(alpha=0.3)
+    _save_figure(out)
+    return True
+
+
+def plot_deep_rl_comparison(ppo_mean: float, ppo_std: float,
+                              ablations: Sequence[Dict], out_path: str) -> bool:
+    """Bar chart: MaskablePPO vs PPO-no-mask vs DQN."""
+
+    if not HAS_PLOT:
+        return False
+    out = Path(out_path)
+    _apply_theme()
+    names = ["MaskablePPO"] + [a["algorithm"] for a in ablations]
+    returns = [ppo_mean] + [a["mean_episode_reward"] for a in ablations]
+    errors = [ppo_std] + [a.get("std_episode_reward", 0.0) for a in ablations]
+    colors = ["#1F4E5F"] + ["#8B6F47"] * len(ablations)
+    plt.figure(figsize=(8, 5))
+    bars = plt.bar(names, returns, yerr=errors, capsize=6, color=colors,
+                    edgecolor="white", error_kw={"ecolor": "#444444"})
+    for bar, val in zip(bars, returns):
+        spread = max(returns) - min(returns) if max(returns) > min(returns) else 1.0
+        plt.text(bar.get_x() + bar.get_width() / 2, val + spread * 0.02,
+                 f"{val:.1f}", ha="center", fontsize=10, fontweight="bold")
+    plt.ylabel("Mean Episode Return")
+    plt.title("Deep RL Comparison on the Full 98-Room Museum")
+    plt.grid(alpha=0.3, axis="y")
+    _save_figure(out)
+    return True
+
+
+def plot_equilibrium_convergence(iterations: Sequence[Dict], out_path: str) -> bool:
+    """Plot welfare over iterated best-response rounds with twin axis for Botticelli."""
+
+    if not HAS_PLOT:
+        return False
+    out = Path(out_path)
+    _apply_theme()
+    welfare = [it["total_welfare"] for it in iterations]
+    bott = [it["botticelli_over80_frac"] for it in iterations]
+    fig, ax1 = plt.subplots(figsize=(10, 4.5))
+    ax1.plot(welfare, marker="o", color="#1F4E5F", linewidth=2,
+             label="Total welfare")
+    ax1.set_xlabel("Iteration")
+    ax1.set_ylabel("Total Welfare", color="#1F4E5F")
+    ax1.tick_params(axis="y", labelcolor="#1F4E5F")
+    ax2 = ax1.twinx()
+    ax2.plot(bott, marker="s", color="#B14D4D", linewidth=2,
+             label="Botticelli overcrowded fraction")
+    ax2.set_ylabel("Botticelli Overcrowded Fraction", color="#B14D4D")
+    ax2.tick_params(axis="y", labelcolor="#B14D4D")
+    plt.title("Iterated Best Response Convergence")
+    fig.tight_layout()
+    _save_figure(out)
+    return True
+
+
+def plot_intervention_welfare_revenue(table: Sequence[Dict], out_path: str) -> bool:
+    """Welfare vs revenue scatter for all interventions (Pareto frontier view)."""
+
+    if not HAS_PLOT:
+        return False
+    out = Path(out_path)
+    _apply_theme()
+    baseline_w = float(table[0].get("total_welfare", 0))
+    baseline_r = float(table[0].get("revenue", 0))
+    rows = [r for r in table[1:] if "Social Optimum" not in str(r.get("intervention", ""))]
+    dw = [float(r.get("total_welfare", 0)) - baseline_w for r in rows]
+    dr = [float(r.get("revenue", 0)) - baseline_r for r in rows]
+    names = [str(r.get("intervention", "")) for r in rows]
+    plt.figure(figsize=(10, 6))
+    plt.scatter(dw, dr, s=50, c="#1F4E5F", alpha=0.75, edgecolor="white")
+    plt.axhline(0, color="black", linestyle=":", alpha=0.5)
+    plt.axvline(0, color="black", linestyle=":", alpha=0.5)
+    for i, name in enumerate(names):
+        if abs(dw[i]) > 300 or abs(dr[i]) > 1500:
+            plt.annotate(name[:20], (dw[i], dr[i]), fontsize=7, alpha=0.85,
+                         xytext=(4, 4), textcoords="offset points")
+    plt.xlabel("Welfare Change vs Baseline")
+    plt.ylabel("Revenue Change vs Baseline (EUR)")
+    plt.title("Welfare-Revenue Trade-off Across Interventions")
+    plt.grid(alpha=0.3)
+    _save_figure(out)
+    return True
+
+
+def plot_top_interventions(table: Sequence[Dict], out_path: str, top_n: int = 10) -> bool:
+    """Horizontal bar chart: top N interventions by welfare gain."""
+
+    if not HAS_PLOT:
+        return False
+    out = Path(out_path)
+    _apply_theme()
+    baseline_w = float(table[0].get("total_welfare", 0))
+    rows = [r for r in table[1:]
+            if "Social Optimum" not in str(r.get("intervention", ""))
+            and "Combined" not in str(r.get("intervention", ""))]
+    rows = sorted(rows, key=lambda r: float(r.get("total_welfare", 0)), reverse=True)[:top_n]
+    names = [str(r.get("intervention", "")) for r in rows]
+    deltas = [float(r.get("total_welfare", 0)) - baseline_w for r in rows]
+    colors = ["#1F4E5F" if d >= 0 else "#B14D4D" for d in deltas]
+    plt.figure(figsize=(10, 6))
+    plt.barh(names[::-1], deltas[::-1], color=colors[::-1], edgecolor="white")
+    plt.axvline(0, color="black", linewidth=0.6)
+    plt.xlabel("Welfare Gain vs Baseline")
+    plt.title(f"Top {top_n} Interventions by Welfare Gain")
+    _save_figure(out)
+    return True
+
+
+def plot_sweep_with_band(records: Sequence[Dict], x_key: str, y_key: str,
+                          y_label: str, title: str, out_path: str) -> bool:
+    """Generic sweep plot with mean line and CI band."""
+
+    if not HAS_PLOT or not records:
+        return False
+    out = Path(out_path)
+    _apply_theme()
+    x = np.array([float(r[x_key]) for r in records])
+    y = np.array([float(r[f"{y_key}_mean"]) for r in records])
+    ci = np.array([float(r.get(f"{y_key}_ci", 0)) for r in records])
+    plt.figure(figsize=(10, 5))
+    plt.plot(x, y, marker="o", linewidth=2, color="#1F4E5F", label="Mean")
+    plt.fill_between(x, y - ci, y + ci, alpha=0.2, color="#1F4E5F", label="95% CI")
+    plt.xlabel(x_key.replace("_", " ").title())
+    plt.ylabel(y_label)
+    plt.title(title)
+    plt.legend(loc="best", frameon=False)
+    plt.grid(alpha=0.3)
+    _save_figure(out)
+    return True
+
+
+def plot_portfolio_breakdown(portfolio: Dict, baseline_w: float, baseline_r: float,
+                               out_path: str) -> bool:
+    """Bar chart: baseline vs optimal portfolio (welfare and revenue side by side)."""
+
+    if not HAS_PLOT:
+        return False
+    out = Path(out_path)
+    _apply_theme()
+    active = portfolio.get("active") or portfolio.get("active_interventions") or []
+    w = float(portfolio.get("welfare", 0))
+    r = float(portfolio.get("revenue", 0))
+    plt.figure(figsize=(10, 5))
+    labels = ["Baseline", "Optimal Portfolio"]
+    welfare_vals = [baseline_w, w]
+    revenue_vals = [baseline_r, r]
+    x = np.arange(len(labels))
+    width = 0.35
+    plt.bar(x - width / 2, welfare_vals, width, color="#1F4E5F",
+            label="Welfare", edgecolor="white")
+    plt.bar(x + width / 2, np.array(revenue_vals) / 100, width, color="#8B6F47",
+            label="Revenue / 100 (EUR)", edgecolor="white")
+    plt.xticks(x, labels)
+    plt.ylabel("Value")
+    welfare_pct = (w / baseline_w - 1) * 100 if baseline_w else 0
+    revenue_pct = (r / baseline_r - 1) * 100 if baseline_r else 0
+    plt.title(f"Optimal Portfolio ({len(active)} interventions): "
+              f"Welfare {welfare_pct:+.1f}%, Revenue {revenue_pct:+.1f}%")
+    plt.legend(loc="upper left", frameon=False)
+    plt.grid(alpha=0.3, axis="y")
+    _save_figure(out)
+    return True
