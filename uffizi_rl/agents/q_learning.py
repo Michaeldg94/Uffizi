@@ -37,6 +37,7 @@ from collections import defaultdict
 from dataclasses import dataclass
 from typing import Callable, Dict, List, Tuple
 
+import networkx as nx
 import numpy as np
 
 from uffizi_rl import config
@@ -112,10 +113,32 @@ class ToyTabularEnv:
         self.max_degree = max(dict(self.g.degree()).values())
         self.action_size = 1 + self.max_degree         # 0=stay, 1..max_degree=move
 
+        # Hops from each room to EXIT, for closing-time egress planning.
+        self._dist_exit = nx.shortest_path_length(self.g, target="EXIT")
+
+        # Satiation + dense closing pressure (mirror UffiziEnv).
+        # novelty_decay: marginal art reward halves each extra minute in a
+        #   room, so a room satiates and lingering stops paying.
+        # step_cost: per-minute time cost; lingering/backtracking is a net loss.
+        # exit_bonus: completion bonus for a voluntary exit.
+        # closing_pressure / closing_threshold: after closing_threshold of the
+        #   horizon, being far from EXIT costs more each step (scaled by hops),
+        #   the dense, learnable egress signal.
+        # noexit_penalty: terminal penalty if still inside at the horizon
+        #   (strong, but not a full wipe, which proved unlearnable).
+        self.novelty_decay = 0.5
+        self.step_cost = 0.5
+        self.exit_bonus = 15.0
+        self.closing_pressure = 4.0
+        self.egress_buffer = 5
+        self.noexit_penalty = -50.0
+
         # Episode state (reset in reset()).
         self.current_room = "ENTRY"
         self.t = 0                                     # discrete time step
         self.visited = set()                           # rooms visited this episode
+        self._appreciation: Dict[str, int] = {}        # minutes appreciated per room
+        self._episode_return = 0.0                     # banked reward; zeroed if it fails to exit
 
     # -----------------------------------------------------------------
     # Action helpers
@@ -143,6 +166,24 @@ class ToyTabularEnv:
         if 0 <= idx < len(nbrs):
             return nbrs[idx]
         return self.current_room                       # out-of-range -> stay
+
+    def _eject_action(self) -> int:
+        """Action index moving one hop toward EXIT (closing-time ejection).
+
+        Picks the neighbor with the smallest hop-distance to EXIT, so the
+        distance strictly decreases each step and the visitor is walked out.
+        """
+        if self.current_room == "EXIT":
+            return 0
+        nbrs = self._neighbors()
+        if not nbrs:
+            return 0
+        best_i, best_d = 0, None
+        for i, nb in enumerate(nbrs):
+            d = self._dist_exit.get(nb, 999)
+            if best_d is None or d < best_d:
+                best_d, best_i = d, i
+        return best_i + 1                              # action 0 = stay; neighbors 1..
 
     def valid_actions(self) -> np.ndarray:
         """Return a binary mask of valid actions for the current room.
@@ -306,6 +347,7 @@ class ToyTabularEnv:
         self.current_room = "ENTRY"
         self.t = 0
         self.visited = {"ENTRY"}                       # ENTRY is always "visited"
+        self._appreciation = {}                        # reset satiation counters
         return self.get_state()
 
     def step(self, action: int):
@@ -315,7 +357,7 @@ class ToyTabularEnv:
         -------------
         The reward function encodes the Type A ("art lover") visitor's utility:
 
-          r = importance * novelty / (1 + alpha * density) - step_cost
+          r = importance * novelty / (1 + alpha * density**2) - step_cost
 
         where:
           - importance: room's cultural significance (1-10 from the graph).
@@ -360,7 +402,6 @@ class ToyTabularEnv:
             action = 0
 
         next_room = self._action_to_room(action)
-        visited_before = next_room in self.visited
 
         self.current_room = next_room
         self.visited.add(next_room)
@@ -369,10 +410,18 @@ class ToyTabularEnv:
         imp = self.g.nodes[next_room]["importance"]
 
         # --- Reward computation ---
-        # Novelty bonus: full credit on first visit, 20% on revisits.
-        novelty = 1.0 if not visited_before else 0.2
-        # Core reward: importance discounted by crowd density, minus step cost.
-        reward = imp * novelty / (1.0 + config.TYPE_A_CROWD_ALPHA * dens) - 0.01
+        # Satiation: marginal art reward in a room halves each extra minute
+        # there, so a room pays off only until "seen as much as wanted".
+        novelty = float(self.novelty_decay ** self._appreciation.get(next_room, 0))
+        self._appreciation[next_room] = self._appreciation.get(next_room, 0) + 1
+        # Core reward: importance discounted by crowd density, minus a
+        # per-minute step cost that makes lingering/backtracking a net loss.
+        reward = imp * novelty / (1.0 + config.TYPE_A_CROWD_ALPHA * dens * dens) - self.step_cost
+        # Slack-based egress pressure (mirror UffiziEnv): zero while the agent
+        # can still reach EXIT comfortably, escalating once behind schedule.
+        time_remaining = self.horizon - self.t
+        deficit = self._dist_exit.get(next_room, 0) + self.egress_buffer - time_remaining
+        reward -= self.closing_pressure * max(0.0, deficit)
         # Congestion penalty for gallery rooms only (corridors are transient).
         if next_room not in {"ENTRY", "C1", "C2", "EXIT"} and dens > 0.8:
             reward -= 0.5 * dens
@@ -381,13 +430,22 @@ class ToyTabularEnv:
             reward -= 0.2
 
         self.t += 1
+        terminated = next_room == "EXIT"
+        time_up = self.t >= self.horizon
+        # Completion bonus for a voluntary exit.
+        if terminated:
+            reward += self.exit_bonus
+        # Failing to leave by the horizon is strictly bad: a strong terminal
+        # penalty (not a full wipe). The dense closing pressure teaches egress.
+        if time_up and not terminated:
+            reward += self.noexit_penalty
 
-        # Terminal conditions: reached the exit, or time budget exhausted.
-        done = next_room == "EXIT" or self.t >= self.horizon
+        done = terminated or time_up
         return self.get_state(), float(reward), bool(done), {
             "room": next_room,
             "density": dens,
             "invalid": invalid,
+            "exited": terminated,
         }
 
 
@@ -697,6 +755,164 @@ def greedy_q_policy(agent: QLearningAgent):
     def _policy(state, mask: np.ndarray) -> int:
         q = agent.q_table[state].copy()
         q[mask == 0] = -1e9                            # mask invalid actions
+        return int(np.argmax(q))
+
+    return _policy
+
+
+# =============================================================================
+# Double Q-learning (Hasselt, 2010): a sibling tabular variant
+# =============================================================================
+
+
+class DoubleQLearningAgent:
+    """Tabular Double Q-learning agent (Hasselt, 2010).
+
+    Standard Q-learning systematically overestimates Q-values because the
+    max in the TD target is biased upward whenever Q is noisy:
+    ``E[max_a Q(s', a)] >= max_a E[Q(s', a)]`` by Jensen's inequality.
+    Double Q-learning decouples action selection from action evaluation
+    to remove that bias.
+
+    Two Q-tables are maintained, ``Q_a`` and ``Q_b``. On each step a coin
+    is flipped:
+
+      - heads: pick the greedy action in s' according to ``Q_a``, then
+        update ``Q_a`` toward ``r + gamma * Q_b(s', argmax_a Q_a(s', a))``.
+      - tails: the roles of ``Q_a`` and ``Q_b`` are swapped.
+
+    The two tables are noisy in opposite directions, so using one to pick
+    the action and the other to score it produces an unbiased target.
+
+    At policy time the greedy action is taken on the AVERAGE of the two
+    tables, which has lower variance than either alone.
+
+    All other hyperparameters and the epsilon-greedy exploration are
+    identical to the vanilla ``QLearningAgent``, so the comparison
+    isolates the bias-correction effect.
+    """
+
+    def __init__(self, action_size: int, lr: float = 0.1, gamma: float = 0.99, epsilon: float = 1.0):
+        # Two parallel Q-tables, both defaultdict-zero-initialised.
+        self.q_a: Dict = defaultdict(lambda: np.zeros(action_size, dtype=float))
+        self.q_b: Dict = defaultdict(lambda: np.zeros(action_size, dtype=float))
+        self.lr = float(lr)
+        self.gamma = float(gamma)
+        self.epsilon = float(epsilon)
+        self.epsilon_decay = 0.9995
+        self.epsilon_min = 0.01
+        self.action_size = int(action_size)
+
+    def _combined_q(self, state) -> np.ndarray:
+        """Return the average of the two Q-tables at ``state``.
+
+        Used for action selection (during both exploration and exploitation)
+        and for the final greedy policy. Averaging both heads produces a
+        lower-variance estimate than reading from either head alone.
+        """
+        return 0.5 * (self.q_a[state] + self.q_b[state])
+
+    def select_action(self, state, valid_mask: np.ndarray, rng: np.random.Generator) -> int:
+        """Epsilon-greedy over the averaged Q-table, masked to valid actions."""
+        valid_actions = np.flatnonzero(valid_mask)
+        if len(valid_actions) == 0:
+            return 0
+        if rng.random() < self.epsilon:
+            return int(rng.choice(valid_actions))
+        q = self._combined_q(state).copy()
+        q[valid_mask == 0] = -1e9
+        return int(np.argmax(q))
+
+    def update(self, s, a: int, r: float, ns, done: bool, next_valid_mask: np.ndarray,
+               rng: np.random.Generator) -> None:
+        """Apply the Double Q-learning TD update with a 50/50 head swap.
+
+        The asymmetric "argmax from one table, value from the other"
+        pattern is the bias-fix that distinguishes Double Q-learning from
+        vanilla Q-learning.
+        """
+        if rng.random() < 0.5:
+            # Update Q_a using Q_b to evaluate the action chosen by Q_a.
+            next_q_a = self.q_a[ns].copy()
+            next_q_a[next_valid_mask == 0] = -1e9
+            argmax_a = int(np.argmax(next_q_a))
+            target = r if done else r + self.gamma * self.q_b[ns][argmax_a]
+            self.q_a[s][a] += self.lr * (target - self.q_a[s][a])
+        else:
+            # Symmetric: update Q_b using Q_a to evaluate Q_b's argmax.
+            next_q_b = self.q_b[ns].copy()
+            next_q_b[next_valid_mask == 0] = -1e9
+            argmax_b = int(np.argmax(next_q_b))
+            target = r if done else r + self.gamma * self.q_a[ns][argmax_b]
+            self.q_b[s][a] += self.lr * (target - self.q_b[s][a])
+
+    def decay_epsilon(self) -> None:
+        self.epsilon = max(self.epsilon_min, self.epsilon * self.epsilon_decay)
+
+
+def train_double_q_learning(
+    episodes: int = config.TABULAR_EPISODES_DEFAULT,
+    seed: int = config.DEFAULT_SEED,
+) -> tuple[DoubleQLearningAgent, TrainingHistory, ToyTabularEnv]:
+    """Train tabular Double Q-learning on the same toy graph as ``train_q_learning``.
+
+    The training loop is structurally identical to vanilla Q-learning;
+    only the agent's update rule differs. This makes the two algorithms
+    directly comparable on the same trajectory of episodes and seeds.
+    """
+
+    rng = config.get_rng(seed)
+    env = ToyTabularEnv(seed=seed)
+    agent = DoubleQLearningAgent(action_size=env.action_size)
+
+    rewards: List[float] = []
+    lengths: List[int] = []
+    offpeak_bott: List[int] = []
+
+    for _ in range(int(episodes)):
+        s = env.reset()
+        done = False
+        ep_reward = 0.0
+        ep_len = 0
+        ep_offpeak = 0
+
+        while not done:
+            mask = env.valid_actions()
+            a = agent.select_action(s, mask, rng)
+            ns, r, done, info = env.step(a)
+            next_mask = env.valid_actions()
+            agent.update(s, a, r, ns, done, next_mask, rng)
+
+            s = ns
+            ep_reward += r
+            ep_len += 1
+            if info["room"] in {"A11", "A12"} and info["density"] < 0.6:
+                ep_offpeak += 1
+
+        agent.decay_epsilon()
+        rewards.append(float(ep_reward))
+        lengths.append(ep_len)
+        offpeak_bott.append(ep_offpeak)
+
+    history = TrainingHistory(
+        episode_rewards=rewards,
+        episode_lengths=lengths,
+        botticelli_offpeak_visits=offpeak_bott,
+    )
+    return agent, history, env
+
+
+def greedy_double_q_policy(agent: DoubleQLearningAgent):
+    """Return the deterministic policy that picks argmax of the AVERAGE table.
+
+    Averaging Q_a and Q_b at policy time gives a lower-variance estimate
+    than either head alone, which is the second reason Double Q-learning
+    is usually preferred over vanilla Q-learning at evaluation.
+    """
+
+    def _policy(state, mask: np.ndarray) -> int:
+        q = agent._combined_q(state).copy()  # noqa: SLF001
+        q[mask == 0] = -1e9
         return int(np.argmax(q))
 
     return _policy

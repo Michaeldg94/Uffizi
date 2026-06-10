@@ -284,15 +284,57 @@ def welfare_proxy_from_density(
     utility_b = importance[None, :] / (1.0 + config.TYPE_B_CROWD_ALPHA * density_matrix)
     mean_utility_b = float(np.mean(utility_b))
 
-    # --- Aggregate welfare ---
-    # Total welfare = sum of per-capita utility weighted by population count.
-    # This is a utilitarian social welfare function.
+    # --- Aggregate welfare (Pigovian/Ostrom: appreciation MINUS externality) ---
+    # Per-visitor positive appreciation, weighted by population.
     type_a_welfare = float(type_a_count * mean_utility_a)
     type_b_welfare = float(type_b_count * mean_utility_b)
-    total = type_a_welfare + type_b_welfare
+    appreciation = type_a_welfare + type_b_welfare
+
+    # Externality penalty. The masterpiece rooms (Botticelli A11/A12,
+    # Leonardo A35, Raphael/Michelangelo A38) are the congestible common
+    # resource. When their density during peak hours (10:00 to 14:00,
+    # i.e., simulation minutes 105 to 345 with 8:15 start) is above the
+    # comfort threshold of 0.5, every additional unit of density imposes
+    # a quadratic cost. Capacity-weighting reflects that the same density
+    # in a bigger room moves more people. Scaling by visitor count keeps
+    # the term comparable to the appreciation total.
+    masterpiece_rooms = ("A11", "A12", "A35", "A38")
+    peak_start_min, peak_end_min = 105, 345  # ~10:00 to ~14:00
+    externality_cost = 0.0
+    for r in masterpiece_rooms:
+        if r not in config.ROOM_DATA:
+            continue
+        idx = config.ROOM_TO_IDX[r]
+        if idx >= n_rooms:
+            continue
+        cap = float(config.ROOM_DATA[r]["capacity"])
+        # Peak-hour density slice for this room. Guard against
+        # truncated simulations (e.g. tests) where T < peak_start_min:
+        # an empty slice would make np.mean return nan and poison the
+        # final total, so we treat empty slices as zero externality.
+        slice_dens = density_matrix[peak_start_min:peak_end_min, idx]
+        if slice_dens.size == 0:
+            continue
+        # Excess density above the comfort threshold.
+        over = np.maximum(0.0, slice_dens - 0.5)
+        # Quadratic externality cost: more crowding hurts disproportionately.
+        externality_cost += float(np.mean(over ** 2) * cap)
+
+    # Scale the externality so it is a meaningful fraction of appreciation.
+    # Under the baseline (peak density around 0.75-0.95 at the four
+    # masterpiece rooms) this gives externality roughly 30-40% of the
+    # appreciation total: large enough that the portfolio optimizer is
+    # forced to pick interventions that reduce peak masterpiece density,
+    # not interventions that just add visitors at off-peak hours.
+    externality_weight = 40.0
+    externality_cost_total = externality_weight * externality_cost * (total_visitors / 1000.0)
+
+    total = appreciation - externality_cost_total
 
     return {
         "total_welfare": float(total),
+        "appreciation_welfare": float(appreciation),
+        "externality_cost": float(externality_cost_total),
         "type_a_welfare": float(type_a_welfare),
         "type_b_welfare": float(type_b_welfare),
         "peak_density": peak_density,

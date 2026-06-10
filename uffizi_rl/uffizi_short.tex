@@ -1,0 +1,983 @@
+% =============================================================================
+% UFFIZI RL: REINFORCEMENT LEARNING FOR MUSEUM VISITOR FLOW
+% FULL PREPARATION DECK (~50 slides)
+% Brief-aligned: RL centerpiece + detailed algorithms + the journey of
+% challenges, failures, and diagnoses (the graded core).
+% =============================================================================
+\documentclass[aspectratio=169, 11pt]{beamer}
+
+% -- Theme -----------------------------------------------------------------
+\usetheme{Madrid}
+\usecolortheme{whale}
+\setbeamertemplate{navigation symbols}{}
+\setbeamertemplate{footline}{%
+  \leavevmode\hbox{%
+    \begin{beamercolorbox}[wd=.33\paperwidth,ht=2.5ex,dp=1ex,center]{author in head/foot}%
+      \usebeamerfont{author in head/foot}\insertshortauthor
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.34\paperwidth,ht=2.5ex,dp=1ex,center]{title in head/foot}%
+      \usebeamerfont{title in head/foot}\insertshorttitle
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.33\paperwidth,ht=2.5ex,dp=1ex,right]{date in head/foot}%
+      \usebeamerfont{date in head/foot}\insertframenumber{} / \inserttotalframenumber\hspace*{2ex}
+    \end{beamercolorbox}}%
+  \vskip0pt%
+}
+
+% -- Packages --------------------------------------------------------------
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{multirow}
+\usepackage{hyperref}
+\usepackage{array}
+
+\usetikzlibrary{arrows.meta, positioning, calc, fit, backgrounds,
+                 decorations.pathmorphing, decorations.pathreplacing}
+
+% -- Colours ---------------------------------------------------------------
+\definecolor{uffiziblue}{RGB}{30,80,160}
+\definecolor{crowdred}{RGB}{200,50,50}
+\definecolor{skyblue}{RGB}{70,130,180}
+\definecolor{safegreen}{RGB}{60,160,60}
+\definecolor{warnorange}{RGB}{230,150,30}
+\definecolor{galleryorange}{RGB}{230,120,30}
+\definecolor{policypurple}{RGB}{120,80,160}
+\definecolor{softgray}{RGB}{140,140,140}
+\definecolor{lightbg}{RGB}{245,245,250}
+\definecolor{inkblue}{RGB}{31,58,95}
+
+% -- Custom commands -------------------------------------------------------
+\newcommand{\thead}[1]{\textbf{#1}}
+\newcommand{\good}[1]{\textcolor{safegreen}{#1}}
+\newcommand{\bad}[1]{\textcolor{crowdred}{#1}}
+\newcommand{\warn}[1]{\textcolor{warnorange}{#1}}
+\newcommand{\emp}[1]{\textit{#1}}
+\newcommand{\code}[1]{\texttt{\small #1}}
+\newcommand{\fig}[1]{../outputs/figures/#1}
+
+% Symptom / Diagnosis / Fix / Lesson block for the challenges section.
+\newcommand{\sdfl}[4]{%
+\begin{itemize}\setlength\itemsep{2pt}
+\item[\bad{\textbf{S}}] \emp{Symptom.} #1
+\item[\warn{\textbf{D}}] \emp{Diagnosis.} #2
+\item[\good{\textbf{F}}] \emp{Fix.} #3
+\item[\textbf{L}] \emp{Lesson.} #4
+\end{itemize}}
+
+% -- Title -----------------------------------------------------------------
+\title[Uffizi RL]{Reinforcement Learning for Museum Visitor Flow\\
+       Crowd-Level Interventions and the Optimal Visit\\
+       at the Uffizi Gallery}
+\subtitle{}
+\author[Marco Canal]{\normalsize Marco Canal}
+\institute[BSE]{\large Reinforcement Learning, Barcelona School of Economics}
+\date{Spring 2026}
+
+\begin{document}
+
+\begin{frame}\titlepage\end{frame}
+
+\begin{frame}{Outline}
+\scriptsize\tableofcontents
+\end{frame}
+
+% #############################################################################
+\section{The Problem and the Framing}
+% #############################################################################
+
+\begin{frame}{Why Uffizi Crowding Is a Real Problem}
+\footnotesize
+\begin{columns}[T]
+\begin{column}{0.56\textwidth}
+The Uffizi takes roughly \emp{5{,}000 visitors per day} across \emp{98 rooms}.
+Demand collapses onto four masterpieces: Botticelli's \emp{Spring} and \emp{Venus}
+(A11/A12), \emp{Leonardo} (A35), \emp{Raphael / Michelangelo} (A38). The rest of the
+collection sits nearly empty.
+
+\vspace{0.4em}
+Two problems live in one museum:
+\begin{itemize}\setlength\itemsep{2pt}
+\item a \emp{population game} (the management problem): how to redistribute demand;
+\item a \emp{sequential decision} (the visitor problem): when and how to see the
+      masterpieces under crowd uncertainty.
+\end{itemize}
+\end{column}
+\begin{column}{0.42\textwidth}
+\centering
+\emp{The crowd is not monolithic:}
+\vspace{0.3em}
+\begin{tabular}{lc}
+\toprule
+\thead{Segment} & \thead{Share} \\
+\midrule
+Instagram tourist (selfie run) & \emp{60\%} \\
+Normal tourist & \emp{30\%} \\
+Art lover (connoisseur) & \emp{10\%} \\
+\bottomrule
+\end{tabular}
+\vspace{0.5em}
+
+\footnotesize Different tastes, dwell times, and crowd-aversion, all sharing the
+same four bottlenecks.
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{The Status Quo: Masterpieces Overcrowded, the Rest Empty}
+\footnotesize
+A single simulated day, no interventions. Left: a time-by-room density heatmap.
+Right: the most-congested rooms.
+\vspace{0.2em}
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}\centering
+\includegraphics[width=\linewidth]{\fig{05_density_heatmap.png}}
+\end{column}
+\begin{column}{0.45\textwidth}\centering
+\includegraphics[width=\linewidth]{\fig{06_top_congested.png}}
+\end{column}
+\end{columns}
+\vspace{0.3em}
+The masterpiece rooms run far above capacity while the B, C, and D wings stay
+quiet. This \emp{imbalance}, not a global shortage of space, is the target.
+\end{frame}
+
+\begin{frame}{Two Streams, One Project}
+\footnotesize
+The project is deliberately split into two \emp{separate} streams that meet only at
+the end.
+\vspace{0.3em}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\thead{Stream 1: crowd simulator (museum-wide).}
+\begin{itemize}\setlength\itemsep{1pt}
+\item Runs the whole 60/30/10 population for a day.
+\item Compares the museum \emp{as-is} vs under an \emp{11-lever} intervention bundle.
+\item Produces \emp{welfare} and \emp{revenue}.
+\end{itemize}
+\end{column}
+\begin{column}{0.5\textwidth}
+\thead{Stream 2: RL on top (the optimal visit).}
+\begin{itemize}\setlength\itemsep{1pt}
+\item Takes the intervened world as given.
+\item Trains one agent per profile to make the \emp{optimal booking}.
+\item Reads off the policy: \emp{book early, earlier when busier}.
+\end{itemize}
+\end{column}
+\end{columns}
+\vspace{0.5em}
+\begin{center}
+\emp{The gate between them:} a director will only adopt interventions that do
+\textbf{not} collapse revenue. \emp{Pass the gate first, then study the optimum.}
+\end{center}
+\end{frame}
+
+\begin{frame}{The Decision Problems as MDPs}
+\footnotesize
+Everything is framed as a Markov decision process $(\mathcal{S},\mathcal{A},P,r,\gamma)$.
+\vspace{0.2em}
+\begin{center}
+\renewcommand{\arraystretch}{1.25}
+\begin{tabular}{p{2.4cm} p{4.0cm} p{4.6cm}}
+\toprule
+ & \thead{Foundations / navigation} & \thead{RAMA booking (centerpiece)} \\
+\midrule
+State $s$ & room, time, local crowd, visited-mask & booking phase, lead options, slot fill,
+secured windows, position \\
+Action $a$ & stay / move to a neighbour & lead time $\in\{1,7,21,35\}$d, which
+masterpieces, then pace \\
+Reward $r$ & importance $\times$ crowd-discount $-$ time & appreciation banked at
+check-in inside the booked window \\
+Discount & $\gamma=0.99$ (toy), $0.995$ (deep) & $\gamma=0.999$ (reward lands days later) \\
+\bottomrule
+\end{tabular}
+\end{center}
+\vspace{0.3em}
+\emp{Why RL and not plain optimisation?} The crowd is non-stationary and only
+partially observed; the payoff is delayed; the visitor must trade present dwell
+against future congestion. That is a sequential decision under uncertainty.
+\end{frame}
+
+% #############################################################################
+\section{Foundations: Tabular Q-Learning (the Toy Museum)}
+% #############################################################################
+
+\begin{frame}{We Start Small: a 12-Room Toy Museum}
+\footnotesize
+\begin{columns}[T]
+\begin{column}{0.55\textwidth}
+Before the full museum, we prove the core idea on a \emp{12-node toy graph} where
+the state space is small enough for an exact table.
+\begin{itemize}\setlength\itemsep{1pt}
+\item Nodes: ENTRY, two corridors, the masterpieces (A11/A12, A16, A35, A38, E4),
+      two minor rooms, EXIT.
+\item Crowds are \emp{deterministic Gaussian waves}: Botticelli peaks at 35\% of the
+      day, the Tribune at 40\%, Leonardo at 50\%, Raphael at 55\%.
+\end{itemize}
+\vspace{0.3em}
+\emp{The hypothesis:} the best policy is \textbf{temporal arbitrage}, visit a masterpiece
+in the valley before or after its crowd peak, not when the guidebook sends everyone.
+\end{column}
+\begin{column}{0.43\textwidth}
+\centering
+\includegraphics[width=\linewidth]{\fig{12_epsilon_decay.png}}\\[0.2em]
+\scriptsize \emp{Exploration schedule: $\varepsilon$ decays $1.0\to0.01$ multiplicatively
+($\times0.9995$/episode), annealing from random to greedy.}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Q-Learning, in Detail}
+\footnotesize
+A model-free, off-policy, value-based method. We learn $Q(s,a)$, the expected return
+of taking $a$ in $s$ then acting greedily, by bootstrapping toward the Bellman target.
+\vspace{0.2em}
+\begin{block}{The one-step TD(0) update}
+\[
+Q(s,a)\;\leftarrow\;Q(s,a)\;+\;\alpha\Big[\,\underbrace{r+\gamma\max_{a'\in\mathcal{A}(s')}Q(s',a')}_{\text{TD target}}\;-\;Q(s,a)\Big]
+\]
+\end{block}
+\vspace{-0.2em}
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+\thead{State} (a 5-tuple, $\approx$123k cells):\\
+room $\times$ time-bin(10) $\times$ Bott-crowd(4) $\times$ Leo-crowd(4) $\times$ visited-mask(64).\\[0.3em]
+\thead{Reward} encodes the art lover:
+\[
+r=\frac{\text{importance}\cdot\text{novelty}}{1+\alpha_{\!A}\,\text{density}^2}-\text{step cost}
+\]
+novelty halves each extra minute (satiation); $\alpha_A{=}6$.
+\end{column}
+\begin{column}{0.45\textwidth}
+\thead{Hyperparameters}
+\begin{itemize}\setlength\itemsep{1pt}
+\item learning rate $\alpha=0.1$
+\item discount $\gamma=0.99$ (far-sighted: late rooms still matter)
+\item $\varepsilon$-greedy, masked to valid moves only
+\item $\max$ in the target is also masked, so the agent never bootstraps off illegal moves
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Double Q-Learning, in Detail}
+\footnotesize
+Vanilla Q-learning \emp{overestimates}: the same noisy $Q$ both \emp{picks} and \emp{scores}
+the next action, and by Jensen's inequality $\mathbb{E}[\max_a Q]\ge\max_a\mathbb{E}[Q]$.
+Double Q-learning (van Hasselt, 2010) decouples the two.
+\vspace{0.2em}
+\begin{block}{Two tables, a coin flip decorrelates selection from evaluation}
+With probability $\tfrac12$ update $Q_A$, else $Q_B$:
+\[
+Q_A(s,a)\leftarrow Q_A(s,a)+\alpha\Big[r+\gamma\,Q_B\big(s',\,\arg\max_{a'}Q_A(s',a')\big)-Q_A(s,a)\Big]
+\]
+$Q_A$ chooses the action; the \emp{other} table $Q_B$ scores it. At decision time we act
+on the average $\tfrac12(Q_A+Q_B)$.
+\end{block}
+\vspace{0.2em}
+\emp{Honest result (next slides):} on this \textbf{deterministic} toy there is little
+maximisation bias to remove, so vanilla Q-learning slightly edges Double-Q. The
+variant earns its keep under noise, not here. Reporting both is the point.
+\end{frame}
+
+\begin{frame}{Foundations Result I: Temporal Arbitrage Is Learned}
+\footnotesize
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}\centering
+\includegraphics[width=\linewidth]{\fig{09_q_learning_curve.png}}\\
+\scriptsize \emp{Episode return climbs from $\sim$40 to $\sim$100 and converges. The band
+is the 25-episode rolling 95\% CI.}
+\end{column}
+\begin{column}{0.5\textwidth}\centering
+\includegraphics[width=\linewidth]{\fig{10_offpeak_botticelli.png}}\\
+\scriptsize \emp{Off-peak Botticelli visits rise over training: the agent learns to enter
+A11/A12 in the crowd valley, from samples alone.}
+\end{column}
+\end{columns}
+\vspace{0.3em}
+The agent is never told the crowd schedule. It discovers, by trial and error, that
+\emp{when} you visit a masterpiece matters as much as \emp{whether} you visit it.
+\end{frame}
+
+\begin{frame}{Foundations Result II: Beating Every Handcrafted Baseline}
+\footnotesize
+\centering
+\includegraphics[width=0.66\linewidth]{\fig{13_baseline_comparison.png}}
+\vspace{0.1em}
+\raggedright
+\begin{itemize}\setlength\itemsep{0pt}
+\item Q-learning (\good{100.5}) beats all five handcrafted policies, including
+      \code{peak\_avoidance} (70.6) and \code{greedy\_least\_crowded} (61.3).
+\item Double-Q (\warn{86.9}) trails vanilla here: nothing to de-bias on a deterministic
+      graph. The variant is a control, not a free lunch.
+\item \emp{Takeaway:} the learned timing strategy dominates every hand rule, the green
+      light to scale.
+\end{itemize}
+\end{frame}
+
+% #############################################################################
+\section{Scaling Up: Deep RL and Action Masking}
+% #############################################################################
+
+\begin{frame}{Why the Table Breaks on the Real Museum}
+\footnotesize
+The toy table has $\sim$123k cells. The real museum does not fit:
+\begin{itemize}\setlength\itemsep{2pt}
+\item \emp{98 rooms}, \emp{$\sim$100 actions} per step, a continuous crowd density per room,
+      and a $\sim$400--500-dimensional observation.
+\item A tabular state space would be astronomically large and almost entirely
+      unvisited, so no generalisation across similar states.
+\end{itemize}
+\vspace{0.3em}
+\emp{The fix is function approximation:} replace the table $Q(s,a)$ with a neural
+network $\pi_\theta(a\,|\,s)$ and $V_\theta(s)$, trained by policy gradient. We use
+\textbf{MaskablePPO}, with vanilla PPO and DQN as controls.
+\end{frame}
+
+\begin{frame}{MaskablePPO, in Detail (1/2): the Objective}
+\footnotesize
+PPO is an \emp{on-policy actor-critic}. The actor $\pi_\theta$ proposes moves; the critic
+$V_\theta$ scores states. It improves the policy with a \emp{clipped} surrogate that
+forbids destructively large updates.
+\begin{block}{Clipped surrogate objective}
+\[
+L^{\text{CLIP}}(\theta)=\mathbb{E}_t\!\Big[\min\big(\rho_t\hat A_t,\;\operatorname{clip}(\rho_t,1-\epsilon,1+\epsilon)\hat A_t\big)\Big],
+\quad \rho_t=\frac{\pi_\theta(a_t|s_t)}{\pi_{\theta_{\text{old}}}(a_t|s_t)}
+\]
+\end{block}
+\vspace{-0.3em}
+Advantages use \emp{GAE}: $\hat A_t=\sum_l(\gamma\lambda)^l\delta_{t+l}$,
+$\delta_t=r_t+\gamma V(s_{t+1})-V(s_t)$.
+\begin{itemize}\setlength\itemsep{1pt}
+\item clip range $\epsilon=0.2$ keeps the policy ratio in $[0.8,1.2]$;
+\item $\gamma=0.995$ (long, 615-minute episodes), $\lambda=0.98$ (low-bias advantages);
+\item network: \code{MlpPolicy}, two hidden layers of 256; entropy bonus $0.005$.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{MaskablePPO, in Detail (2/2): Action Masking}
+\footnotesize
+The museum is a \emp{graph}: from any room only a handful of moves are legal, but the
+action head has $\sim$100 outputs. Without help, $\sim$80\% of actions are illegal at
+every step and the policy must \emp{learn} that from penalties, wasting gradient.
+\begin{block}{Masking = restrict the action set before the softmax}
+For invalid actions $a\notin\mathcal{A}(s)$, set the logit $z_a\to-\infty$, so
+\[
+\pi_\theta(a\,|\,s)=\frac{\exp z_a\,\mathbb{1}[a\in\mathcal{A}(s)]}{\sum_{a'\in\mathcal{A}(s)}\exp z_{a'}}=0\ \text{for invalid }a.
+\]
+\end{block}
+\vspace{-0.2em}
+\begin{itemize}\setlength\itemsep{1pt}
+\item Mathematically equivalent to a state-dependent action space, with no probability
+      mass ever spent on illegal moves.
+\item Implemented with sb3-contrib's \code{ActionMasker}; the same mask is passed at
+      training and evaluation.
+\item \emp{This is the single most important architectural choice}, quantified in the
+      ablation later.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{The Curriculum and the DQN Control}
+\footnotesize
+\begin{columns}[T]
+\begin{column}{0.52\textwidth}
+\thead{Three-stage crowd curriculum.}\\
+Training directly at 5{,}000 visitors is too noisy early on, so we ramp the crowd:
+\begin{itemize}\setlength\itemsep{1pt}
+\item Stage 1 (15\% of steps): $0.36\times$ peak crowd
+\item Stage 2 (35\%): $0.64\times$ peak
+\item Stage 3 (50\%): full peak crowd
+\end{itemize}
+Episodes are always the \emp{full open day} (615 min); only the crowd grows.
+\code{random\_start} during training (exploring starts) escapes the entrance-room trap.
+\end{column}
+\begin{column}{0.46\textwidth}
+\thead{DQN, the value-based control.}\\
+Off-policy, learns $Q$ by minimising the Bellman error against a \emp{target network}:
+\[
+\big(r+\gamma\max_{a'}Q_{\theta^-}(s',a')-Q_\theta(s,a)\big)^2
+\]
+\begin{itemize}\setlength\itemsep{1pt}
+\item replay buffer 200k, batch 128, $\gamma=0.995$;
+\item no masking, no curriculum (a fair, reasonable default).
+\end{itemize}
+Including a value-based method shows the masking benefit is not PPO-specific.
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Evaluation Protocol: Common Random Numbers}
+\footnotesize
+Fair comparison demands that every model is scored on the \emp{exact same} crowds.
+\begin{itemize}\setlength\itemsep{2pt}
+\item \emp{CRN eval:} episode $i$ always runs on crowd scenario \code{seed 900000+}$i$,
+      identical regardless of training seed. The reward gap then reflects the
+      \emp{policy}, not which random crowds it happened to face.
+\item 50 evaluation episodes; we report mean and standard error.
+\item \emp{We score the stochastic policy} (sample, not argmax). Under the egress reward
+      the greedy argmax collapses into a non-exiting loop; the sampled policy exits
+      reliably. Scoring the policy as trained is the honest choice (diagnosed later).
+\item \emp{Apples-to-apples:} every algorithm gets the same step budget (up to 1M) and
+      the same CRN eval. ``10k vs 1M would be unfair.''
+\end{itemize}
+\end{frame}
+
+% #############################################################################
+\section{Stream 1: Crowd Simulator and the Director Gate}
+% #############################################################################
+
+\begin{frame}{An Agent-Based Simulator of the Whole Museum}
+\footnotesize
+\begin{columns}[T]
+\begin{column}{0.54\textwidth}
+\begin{itemize}\setlength\itemsep{2pt}
+\item Minute-step, 98 rooms, capacities scaled from floor-plan area (\emp{never} altered).
+\item Visitors arrive on a \emp{Gaussian schedule}, book or walk in, and move by taste
+      under crowd pressure.
+\item The \emp{60/30/10} segments differ in dwell time, masterpiece pull, and
+      crowd-aversion.
+\item Output per day: a density tensor plus \emp{welfare}, \emp{revenue}, and
+      \emp{experience} metrics.
+\end{itemize}
+\vspace{0.3em}
+This is the world. Both the interventions and (later) the RL agent run on top of it.
+\end{column}
+\begin{column}{0.44\textwidth}\centering
+\includegraphics[width=\linewidth]{\fig{03_arrival_envelope.png}}\\[0.3em]
+\includegraphics[width=\linewidth]{\fig{04_visitors_over_day.png}}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Where the Crowds Form}
+\footnotesize
+\centering
+\includegraphics[width=0.62\linewidth]{\fig{01_graph_density.png}}
+\vspace{0.2em}
+\raggedright
+The museum graph coloured by mean density. The hot nodes are exactly the four
+masterpiece rooms and the corridors feeding them; the periphery is cold. The
+intervention design targets this gradient, not the total headcount.
+\end{frame}
+
+\begin{frame}{Eleven Interventions: Pigovian, Not Restrictive}
+\footnotesize
+Design principle (Ostrom / Williamson): \emp{price and reshape the externality}, do not
+lock people out of rooms. The full bundle:
+\vspace{0.3em}
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\begin{itemize}\setlength\itemsep{1pt}
+\item \emp{RAMA}: reservation-anchored masterpiece access
+\item \emp{Secondary-attractor enrichment} (light up minor rooms)
+\item \emp{Extended hours} (7:00--19:00)
+\item \emp{Dynamic pricing} (peak surcharge, off-peak discount)
+\item \emp{Resident annual pass}
+\end{itemize}
+\end{column}
+\begin{column}{0.5\textwidth}
+\begin{itemize}\setlength\itemsep{1pt}
+\item \emp{Tour-group cap} (10)
+\item \emp{Timed entry}
+\item \emp{Quiet hours}
+\item \emp{Per-person group surcharge}
+\end{itemize}
+\vspace{0.6em}
+\footnotesize None restrict access; all redistribute demand or price congestion.
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{RAMA: Reservation-Anchored Masterpiece Access}
+\footnotesize
+The keystone lever, and (later) the object the RL agent learns to use.
+\begin{itemize}\setlength\itemsep{2pt}
+\item The three floor-2 masterpieces (Botticelli, Leonardo, Raphael) are gated by
+      \emp{booked 10-minute time windows} with a per-room capacity ledger
+      (A11{=}55, A35{=}52, A38{=}53). Caravaggio stays free-flow.
+\item You book a general-entry ticket plus the masterpiece slots you want, in advance.
+\item No walk-ins to the masterpieces: if a slot is gone, it is gone, so popular slots
+      on busy days sell out at long lead times.
+\item Effect on the crowd: the masterpiece rooms run \emp{at}, not above, capacity, and
+      the queueing chaos disappears.
+\end{itemize}
+\vspace{0.3em}
+\emp{RAMA is what turns ``when to visit'' into ``when to book.''}
+\end{frame}
+
+\begin{frame}{Screening the Interventions}
+\footnotesize
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}\centering
+\includegraphics[width=\linewidth]{\fig{17_interventions.png}}
+\end{column}
+\begin{column}{0.5\textwidth}\centering
+\includegraphics[width=\linewidth]{\fig{18_top_interventions.png}}
+\end{column}
+\end{columns}
+\vspace{0.2em}
+\raggedright
+Each lever is evaluated alone against the status quo. RAMA and enrichment carry most
+of the welfare gain; the pricing levers carry the revenue. The portfolio optimiser
+then searches combinations.
+\end{frame}
+
+\begin{frame}{The Director Gate: Welfare Up, Revenue Preserved}
+\footnotesize
+A director will only adopt interventions that do \emp{not} collapse revenue. So before
+any RL, we run the whole population, as-is vs all eleven, and check.
+\vspace{0.2em}
+\begin{columns}[T]
+\begin{column}{0.62\textwidth}\centering
+\includegraphics[width=\linewidth]{\fig{07_museum_director_gate.png}}
+\end{column}
+\begin{column}{0.36\textwidth}
+\begin{itemize}\setlength\itemsep{2pt}
+\item All 11: welfare \good{+31\%}, revenue \emp{preserved} ($-1\%$, no collapse).
+\item Optimized subset: welfare \good{+16\%} \emp{and} revenue \good{+13\%}, both up.
+\item Peak Botticelli density \good{1.82 $\to$ 1.00}.
+\end{itemize}
+\vspace{0.4em}
+\footnotesize The gate passes: a large welfare gain at no revenue cost. \emp{Green light
+to study the optimal visit.}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{Who Gains? Every Segment}
+\footnotesize
+\centering
+\includegraphics[width=0.9\linewidth]{\fig{08_museum_per_segment.png}}
+\vspace{0.2em}
+\raggedright
+\emp{Normal tourists} gain most per visit (\good{+49\% to +58\%}); \emp{Instagram
+tourists} and \emp{art lovers} gain through \emp{throughput}, more of them complete a
+visit once the masterpieces are decongested. No segment is made worse off.
+\end{frame}
+
+\begin{frame}{The Win-Win Frontier and the Portfolio}
+\footnotesize
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}\centering
+\includegraphics[width=\linewidth]{\fig{19_welfare_vs_revenue.png}}
+\end{column}
+\begin{column}{0.5\textwidth}\centering
+\includegraphics[width=\linewidth]{\fig{20_portfolio_breakdown.png}}
+\end{column}
+\end{columns}
+\vspace{0.2em}
+\raggedright
+The optimised portfolio drops the heavy demand-suppressors and keeps RAMA, enrichment,
+extended hours, dynamic pricing, the group cap, and the resident pass: it lands in the
+\emp{upper-right}, welfare \good{up} and revenue \good{up} together.
+\end{frame}
+
+\begin{frame}{Population Game: Equilibrium and Sensitivity}
+\footnotesize
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}\centering
+\includegraphics[width=\linewidth]{\fig{16_equilibrium_convergence.png}}\\
+\scriptsize \emp{Iterated best response converges; the gap to the social optimum is the
+Price of Anarchy the interventions close.}
+\end{column}
+\begin{column}{0.5\textwidth}\centering
+\includegraphics[width=\linewidth]{\fig{33_sweep_volume_welfare.png}}\\
+\scriptsize \emp{Welfare vs daily volume: the gain is robust across crowd sizes, widest
+exactly when the museum is busiest.}
+\end{column}
+\end{columns}
+\end{frame}
+
+% #############################################################################
+\section{Stream 2: The RL Booking Agent (Centerpiece)}
+% #############################################################################
+
+\begin{frame}{From the Average to the Optimum}
+\footnotesize
+The museum-wide result is an \emp{average} over the whole population. With the
+interventions cleared as director-safe, the RL question is the sharper one:
+\vspace{0.5em}
+\begin{center}
+\emp{Not the average welfare, but the \textbf{top} welfare: what does an optimal art
+lover and an optimal normal tourist \textbf{do} in the intervened museum?}
+\end{center}
+\vspace{0.5em}
+We train one RL agent per profile, on top of the same crowd simulator, at three crowd
+levels (500 / 2{,}500 / max), and read off its policy.
+\end{frame}
+
+\begin{frame}{The Decision Is the Booking, Not the Navigation}
+\footnotesize
+\begin{columns}[T]
+\begin{column}{0.56\textwidth}
+A real visitor has a map and is guided by staff. Navigation is not the hard problem,
+and pretending it is would be a fake RL task. The genuine learned decision is the
+\emp{RAMA booking}:
+\begin{itemize}\setlength\itemsep{2pt}
+\item \emp{Lead time}: how many days ahead to book ($1, 7, 21, 35$).
+\item \emp{Which masterpieces} to reserve.
+\item then \emp{pace the visit} to arrive inside each booked window.
+\end{itemize}
+\end{column}
+\begin{column}{0.42\textwidth}
+\emp{Setup}:
+\begin{itemize}\setlength\itemsep{2pt}
+\item MaskablePPO, $\gamma=0.999$ (the booking reward lands at check-in, days later).
+\item Two profiles: art lover, normal tourist.
+\item Three crowds: 500 / 2{,}500 / max.
+\item A \emp{fill curve}: popular slots need a longer lead on busier days.
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+\begin{frame}{The Booking MDP}
+\footnotesize
+A two-phase episode. \emp{Phase 1 (booking):} choose a lead time, then accept or skip
+each masterpiece slot, resolved against the crowd-dependent fill curve. \emp{Phase 2
+(the visit):} walk the museum and check in at each booked window.
+\vspace{0.2em}
+\begin{itemize}\setlength\itemsep{2pt}
+\item \emp{Reward structure:} a masterpiece pays \emp{nothing} until you check in inside
+      its window; minor rooms pay their (small, nonzero) encoded value; a kept
+      appointment pays a check-in bonus.
+\item \emp{The fill curve} ties lead time to crowd: a slot is available iff
+      $\text{lead}\ge \text{lead}_{\max}\cdot\text{popularity}\cdot(\text{daily}/2500)$.
+      Busier day $\Rightarrow$ longer lead required.
+\item \emp{Why book-early is non-trivial:} booking late at a packed museum means the
+      good slots are sold out, so you miss masterpieces entirely. Booking early secures
+      well-spaced slots. There is no downside to early; the agent must \emp{discover} that.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{Result: Book Early When Busier, and It Pays}
+\footnotesize
+\begin{columns}[T]
+\begin{column}{0.56\textwidth}\centering
+\includegraphics[width=\linewidth]{\fig{21_booking_grid.png}}\\
+\scriptsize \emp{Intervened (RAMA agent) vs matched no-intervention baseline; 3/3
+masterpieces secured at every crowd.}
+\end{column}
+\begin{column}{0.42\textwidth}\centering
+\includegraphics[width=0.95\linewidth]{\fig{22_book_early_curve.png}}\\
+\scriptsize \emp{Lead time rises with the crowd: book-early emerges from learning.}
+\end{column}
+\end{columns}
+\vspace{0.2em}
+\raggedright
+\begin{itemize}\setlength\itemsep{1pt}
+\item Both profiles beat baseline: \good{+32\% to +41\%} (art), \good{+36\% to +38\%} (tourist).
+\item Lead jumps \emp{7 $\to$ 35 days} as the day fills; booking \emp{late} at a packed
+      museum is worse than not booking.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{The Learned Route on the Real Floor Plan}
+\footnotesize
+\centering
+\includegraphics[width=0.9\linewidth]{\fig{23_walks_art_intervened.png}}
+\vspace{0.1em}
+\raggedright\scriptsize
+\emp{Art lover, intervened, eight rollouts per panel, across the three crowds.} One
+continuous visit: enters at \code{A1}, sweeps the second-floor masterpieces (gold
+stars), descends to the first floor for Caravaggio, exits. Every move is a one-hop
+neighbour (no teleports); all three masterpieces are hit inside their booked windows.
+\end{frame}
+
+\begin{frame}{Which Algorithm Wins, and Why Masking Matters}
+\footnotesize
+\centering
+\includegraphics[width=0.82\linewidth]{\fig{15_algorithm_comparison.png}}
+\vspace{0.2em}
+\raggedright
+\begin{itemize}\setlength\itemsep{1pt}
+\item \emp{MaskablePPO} is the clear winner: stable, finds book-early, best at every crowd.
+\item \emp{Masking is decisive where book-early matters:} at the packed tourist, unmasked
+      PPO collapses to \bad{2093}, \emp{below} the no-booking baseline (2680), while
+      MaskablePPO holds \good{3685}. Unmasked PPO stalls at lead-7.
+\item \emp{DQN} is crowd-fragile and high-variance on the art lover (baseline
+      $5230\!\to\!1756$ as the crowd grows).
+\end{itemize}
+\end{frame}
+
+% #############################################################################
+\section{Challenges, Failures, and Diagnoses (the Core)}
+% #############################################################################
+
+\begin{frame}{How to Read This Section}
+\footnotesize
+The project was months of being wrong in instructive ways. Each of the following
+slides follows the same anatomy:
+\vspace{0.5em}
+\begin{itemize}\setlength\itemsep{4pt}
+\item[\bad{\textbf{S}}] \emp{Symptom} : what looked broken.
+\item[\warn{\textbf{D}}] \emp{Diagnosis} : the actual cause, often not where I first looked.
+\item[\good{\textbf{F}}] \emp{Fix} : the change that worked.
+\item[\textbf{L}] \emp{Lesson} : what it taught about RL or about modelling.
+\end{itemize}
+\vspace{0.6em}
+\begin{center}
+\emp{These failures, and the diagnoses, are the project. The final numbers are just
+where the failures stopped.}
+\end{center}
+\end{frame}
+
+\subsection*{Modelling the world}
+
+\begin{frame}{Challenge 1: ``The Guidebook Tourist Does Not Exist''}
+\footnotesize
+\sdfl
+{Early visitor model assumed a single rational ``guidebook'' tourist who tours the
+collection methodically. The simulated crowd looked nothing like the real Uffizi.}
+{Wrong population. The modal visitor is an \emp{Instagram tourist}: four famous rooms,
+a terrace selfie, gone in 30--60 minutes. Dwell at a masterpiece is bottlenecked by
+selfies and crowd-navigation, not appreciation.}
+{Rebuilt the population as \emp{60\% Instagram / 30\% normal / 10\% art lover}, each with
+distinct dwell, masterpiece pull, and crowd-aversion.}
+{Get the agents right before the mechanism. A beautiful optimiser over the wrong
+population optimises nothing.}
+\end{frame}
+
+\begin{frame}{Challenge 2: A Welfare Metric That Punished the Wrong People}
+\footnotesize
+\sdfl
+{Under RAMA, total welfare came out \emp{below} the no-RAMA baseline (208 vs 244), which
+made the keystone intervention look harmful.}
+{The objective double-counted: a visitor who knew \emp{at booking time} that a
+masterpiece was full was still penalised for ``missing'' it, as if surprised on the day.}
+{Redistribute the lost ``wantedness mass'' onto the rooms the visitor \emp{can} see;
+score welfare as visitor-integrated importance under a quadratic crowd discount, per
+attempted visitor.}
+{The objective must match what the agent actually knows and chooses. A metric that
+penalises foreseen, accepted trade-offs is measuring the wrong thing.}
+\end{frame}
+
+\subsection*{Formulating the decision}
+
+\begin{frame}{Challenge 3: The Big Pivot, Navigation Was the Wrong Task}
+\footnotesize
+\sdfl
+{Months of fighting a navigation agent (exit, dwell, coverage) produced a brittle
+policy and a nagging worry: is routing-with-a-map even a legitimate RL problem?}
+{It is not the interesting decision. The visitor \emp{has} a map and is guided by staff;
+optimising the walk is a shortest path dressed up as RL, a trivial state space.}
+{Reframe the task around the \emp{booking}: lead time, which masterpieces, and spacing
+under a crowd-dependent fill curve. Navigation becomes auto-pacing underneath.}
+{Choosing the MDP is the modelling. Spend the effort on the decision that is genuinely
+uncertain and consequential; the right formulation is more than half the project.}
+\end{frame}
+
+\subsection*{Designing the reward}
+
+\begin{frame}{Challenge 4: The Exit Bug, and an Unlearnable Reward}
+\footnotesize
+\sdfl
+{The agent never left the museum: it squatted in a room until the episode truncated.
+The obvious fix, zero out all reward if you fail to exit, made it \emp{worse}.}
+{An all-or-nothing terminal wipe is \emp{unlearnable}: the return is flat across almost
+every policy, so the gradient is zero, nothing points toward the door.}
+{Replace the wipe with a \emp{dense} egress signal: a per-step pressure that grows with
+distance-to-exit as closing nears, plus a finite (not infinite) no-exit penalty and an
+exit bonus.}
+{Sparse all-or-nothing rewards give the optimiser nothing to climb. A shaped, dense
+signal that points the right way is what makes a behaviour learnable.}
+\end{frame}
+
+\begin{frame}{Challenge 5: The Agent Could Not See What It Needed to Decide}
+\footnotesize
+\sdfl
+{``Stay until satisfied, then move on'' never stabilised: the agent over- or
+under-dwelt rooms seemingly at random, even with the right reward.}
+{The rule depends on \emp{how much value I have already extracted here}, but that
+progress was \emp{not in the observation}. The decision was non-Markov in the state the
+policy could see, an unobservable it was being asked to act on.}
+{Add a per-room \emp{appreciation-progress} vector to the observation (state grows to
+$5N{+}3$ dims), so ``have I seen enough of this room?'' is a function of what the policy
+observes.}
+{The state must contain everything the optimal action depends on. A reward that hinges
+on hidden progress turns the task into a POMDP; expose the variable rather than hoping
+the network reconstructs it.}
+\end{frame}
+
+\begin{frame}{Challenge 6: The Fake Art Lover}
+\footnotesize
+\sdfl
+{The ``art lover'' speed-ran the masterpieces and camped the calm Caravaggio room; it
+also valued every minor room at exactly zero.}
+{Two reward-modelling errors. (1) The crowd penalty was so harsh that a crowded
+Botticelli scored worse than skipping it, so the agent skipped. (2) An importance floor
+zeroed minor rooms, when rooms carry real encoded magnetism and value.}
+{A \emp{gentle} crowd discount (value $=$ importance $\times \frac{1}{1+\alpha\,\text{dens}^2}\times$
+novelty, small $\alpha$): a crowded masterpiece still beats skipping it; minor rooms
+keep a small positive value.}
+{Calibrate the reward to the behaviour you are modelling. A connoisseur who skips a
+crowded Botticelli, or values a minor room at zero, is not a connoisseur.}
+\end{frame}
+
+\begin{frame}{Challenge 7: Reward Shaping That Backfired}
+\footnotesize
+\sdfl
+{Well-meant shaping terms made behaviour \emp{worse}: a ``boredom'' penalty for
+lingering produced \emp{looping}, and a strong tour-completion pull produced
+\emp{ping-pong} between two rooms.}
+{Each term opened a loophole the optimiser exploited. Circling was cheaper than
+exiting under the boredom penalty; an over-weighted tour pull overwhelmed the value
+signal and oscillated.}
+{Remove the boredom penalty (weight $0$) and reduce the tour pull to a gentle nudge
+(weight $1$); let the satiation / novelty term carry ``stop lingering.''}
+{Dense shaping is double-edged: every extra term is a new objective the agent will
+game. Prefer the \emp{minimal} shaping that points the right way, and stress-test each
+term for the perverse incentive it creates.}
+\end{frame}
+
+\begin{frame}{Challenge 8: The Decline-Trap (a Do-Nothing Local Optimum)}
+\footnotesize
+\sdfl
+{Given a free ``decline'' button, \emp{both} profiles collapsed to declining all three
+masterpieces, even against a $-1200$ immediate regret and after a curriculum that first
+taught booking pays $\sim+2000$.}
+{A free decline is a classic RL \emp{do-nothing trap}: skipping is always immediately
+safe, the payoff for booking is delayed, so the optimiser parks on the safe action.}
+{Treat ``always books the three masterpieces'' as a \emp{type characterisation}, not
+museum coercion: nobody travels to Florence and skips all of Botticelli, Leonardo, and
+Raphael. The genuine learned decision is the \emp{lead time}.}
+{A voluntary action that is always immediately safe but only delayed-rewarding will be
+abused by the optimiser unless the formulation itself rules it out.}
+\end{frame}
+
+\begin{frame}{Challenge 9: The Learned-Prior Runaway}
+\footnotesize
+\sdfl
+{The agent's estimate of its own arrival time drifted later and later each update,
+until it ``planned'' to arrive at closing, even on an efficient hand-coded walk and at
+a fixed crowd.}
+{A self-referential feedback loop: the arrival prior was an online average of the
+agent's \emp{own} past arrivals, an alarm clock set to your own wake-ups, so any drift
+compounded.}
+{\emp{Freeze the prior}: compute the arrival estimate \emp{once} from reference walks
+(``brief memory''), then hold it fixed during training ($\alpha_{\text{arr}}{=}0$).}
+{Beware state that is a function of the policy's own history feeding back into the
+policy. Break the loop by freezing the reference.}
+\end{frame}
+
+\begin{frame}{Challenge 10: Book-Late $\to$ Book-Early (the Decisive Trick)}
+\footnotesize
+\sdfl
+{Even after everything above, book-early was only \emp{half}-learned: a flat lead-time
+distribution, $2.5/3$ masterpieces at the packed crowd. The agent also idled $\sim$120
+minutes waiting for windows.}
+{No immediate signal connected an off-pace booking to its eventual cost; the credit for
+booking well was spread days into the future, where the gradient could not find it.}
+{Add an \emp{immediate} off-pace penalty $\text{mismatch}_k\cdot|\text{resolved window}-
+\text{estimate}|$ at booking time, a local proxy for the distant cost (plus a slot-sized
+min gap and an early-grace band to remove the manufactured waiting).}
+{Long-horizon credit assignment is hard; a small immediate penalty that correlates with
+the distant payoff is what made the lesson learnable: book-35 at the packed museum,
+3/3, zero waiting.}
+\end{frame}
+
+\subsection*{Evaluating the policy}
+
+\begin{frame}{Challenge 11: Evaluate the Policy You Actually Trained}
+\footnotesize
+\sdfl
+{The deterministic (argmax) policy looked degenerate, a camp or a ping-pong loop, even
+when training reward was healthy, suggesting the agent had learned nothing.}
+{Under the egress shaping the greedy argmax never quite selects EXIT and falls into a
+non-exiting loop; the \emp{sampled} policy, the one PPO actually optimised, exits
+reliably. Greedy eval was measuring a policy we never trained.}
+{Score the \emp{stochastic} policy for the navigation agent (as trained); score the
+clean booking policies \emp{deterministically}, where the argmax books cleanly.}
+{The evaluation must match the object you optimised. ``Deterministic eval'' is a
+convention, not a law; for a policy trained to be stochastic, the argmax can
+misrepresent what was learned.}
+\end{frame}
+
+% #############################################################################
+\section{What Worked Best and Worst}
+% #############################################################################
+
+\begin{frame}{Scoreboard: Conceptual Choices That Worked Best vs Worst}
+\footnotesize
+\begin{columns}[T]
+\begin{column}{0.5\textwidth}
+\thead{\good{Worked best}}
+\begin{itemize}\setlength\itemsep{2pt}
+\item \emp{Action masking}: restrict the action set; the single biggest lever.
+\item \emp{Reframing to booking, not navigation}: the right, non-trivial MDP.
+\item \emp{Exposing appreciation progress in the state}: made the dwell rule Markov.
+\item \emp{An immediate proxy for the delayed reward}: solved book-early credit
+      assignment.
+\item \emp{Dense egress shaping}: replaced an unlearnable terminal wipe.
+\item \emp{Freezing the self-referential prior}: killed the runaway feedback loop.
+\end{itemize}
+\end{column}
+\begin{column}{0.5\textwidth}
+\thead{\bad{Worked worst}}
+\begin{itemize}\setlength\itemsep{2pt}
+\item \emp{All-or-nothing exit wipe}: zero gradient, unlearnable.
+\item \emp{Free decline button}: a do-nothing local optimum.
+\item \emp{Online self-referential prior}: drifted to closing time.
+\item \emp{Harsh crowd penalty}: produced a fake, masterpiece-skipping art lover.
+\item \emp{Boredom penalty}: created a perverse looping incentive.
+\item \emp{Greedy eval} of a stochastic policy: misrepresented it.
+\end{itemize}
+\end{column}
+\end{columns}
+\end{frame}
+
+% #############################################################################
+\section{Conclusion}
+% #############################################################################
+
+\begin{frame}{Two Streams, One Story}
+\footnotesize
+\begin{enumerate}\setlength\itemsep{4pt}
+\item \emp{Crowd simulator (museum-wide).} The eleven-lever Pigovian bundle raises
+      welfare \good{+31\%} with \emp{revenue preserved}; the optimised subset raises
+      both (\good{+16\%} welfare, \good{+13\%} revenue). The interventions are
+      director-safe, no revenue collapse.
+\item \emp{RL on top (the optimal visit).} Given that intervened world, the optimal
+      art-lover and normal-tourist agents \emp{book early, and earlier when busier},
+      secure all three masterpieces, and beat the no-intervention baseline by
+      \good{+32\% to +41\%} (art) and \good{+36\% to +38\%} (tourist).
+\end{enumerate}
+\vspace{0.4em}
+\begin{center}
+\emp{The average visitor is better off and the museum keeps its revenue; the optimal
+visitor shows exactly how to use the redesigned museum.}
+\end{center}
+\end{frame}
+
+\begin{frame}{Limitations and What Is Next}
+\footnotesize
+\begin{itemize}\setlength\itemsep{3pt}
+\item \emp{Single-seed algorithm matrix.} The 30-cell comparison is one seed per cell;
+      DQN on the art lover is visibly high-variance and would need 3+ seeds to report a
+      mean with error bars.
+\item \emp{``Always books'' is a type assumption}, defensible for these profiles but a
+      modelling choice, not a learned outcome. A richer model would let lead time and
+      participation co-vary.
+\item \emp{The fill curve is a calibrated model}, not booking-system data; the qualitative
+      lesson (book earlier when busier) is robust to its exact shape.
+\item \emp{Next: the Vatican Museums.} Same two-stream method, a larger topology, and
+      real booking traces to replace the fill-curve assumption.
+\end{itemize}
+\end{frame}
+
+\begin{frame}{}
+\centering
+\vspace*{1.5cm}
+{\Huge Thank you.}\\[0.8em]
+{\large Questions?}\\[1.5em]
+\footnotesize
+\emp{Code, data, and reproducible figures at}\\
+\code{github.com/mocl20/Uffizi}
+\end{frame}
+
+\end{document}

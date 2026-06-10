@@ -1,0 +1,115 @@
+{
+  "description": "RL layer: the optimal individual agent built ON TOP of the crowd. Deterministic eval, seeds 900000-5. Two profiles x three crowds x baseline(walk)/intervened(RAMA).",
+  "profiles": {
+    "art": "Art lover",
+    "tourist": "Normal tourist"
+  },
+  "crowds": [
+    500,
+    2500,
+    5000
+  ],
+  "booking_grid": {
+    "art": {
+      "500": {
+        "baseline_points": 5112,
+        "intervened_points": 7113,
+        "pct_vs_baseline": 39.1,
+        "lead_days_intervened": 7,
+        "masterpieces_secured": "3/3"
+      },
+      "2500": {
+        "baseline_points": 4780,
+        "intervened_points": 6297,
+        "pct_vs_baseline": 31.7,
+        "lead_days_intervened": 35,
+        "masterpieces_secured": "3/3"
+      },
+      "5000": {
+        "baseline_points": 4009,
+        "intervened_points": 5646,
+        "pct_vs_baseline": 40.8,
+        "lead_days_intervened": 35,
+        "masterpieces_secured": "3/3"
+      }
+    },
+    "tourist": {
+      "500": {
+        "baseline_points": 2694,
+        "intervened_points": 3686,
+        "pct_vs_baseline": 36.8,
+        "lead_days_intervened": 7,
+        "masterpieces_secured": "3/3"
+      },
+      "2500": {
+        "baseline_points": 2708,
+        "intervened_points": 3695,
+        "pct_vs_baseline": 36.4,
+        "lead_days_intervened": 7,
+        "masterpieces_secured": "3/3"
+      },
+      "5000": {
+        "baseline_points": 2680,
+        "intervened_points": 3685,
+        "pct_vs_baseline": 37.5,
+        "lead_days_intervened": 35,
+        "masterpieces_secured": "3/3"
+      }
+    }
+  },
+  "algorithm_matrix": {
+    "art": {
+      "500": {
+        "PPO-base": 5112,
+        "DQN-base": 5230,
+        "PPO-int": 7113,
+        "MaskPPO-int": 7113,
+        "DQN-int": 2842
+      },
+      "2500": {
+        "PPO-base": 4780,
+        "DQN-base": 3683,
+        "PPO-int": 5646,
+        "MaskPPO-int": 6297,
+        "DQN-int": 6290
+      },
+      "5000": {
+        "PPO-base": 4009,
+        "DQN-base": 1756,
+        "PPO-int": 4833,
+        "MaskPPO-int": 5646,
+        "DQN-int": 4324
+      }
+    },
+    "tourist": {
+      "500": {
+        "PPO-base": 2694,
+        "DQN-base": 2694,
+        "PPO-int": 3686,
+        "MaskPPO-int": 3686,
+        "DQN-int": 3686
+      },
+      "2500": {
+        "PPO-base": 2708,
+        "DQN-base": 2708,
+        "PPO-int": 3695,
+        "MaskPPO-int": 3695,
+        "DQN-int": 3695
+      },
+      "5000": {
+        "PPO-base": 2680,
+        "DQN-base": 2680,
+        "PPO-int": 2093,
+        "MaskPPO-int": 3685,
+        "DQN-int": 3685
+      }
+    }
+  },
+  "algorithm_order": [
+    "PPO-base",
+    "DQN-base",
+    "PPO-int",
+    "MaskPPO-int",
+    "DQN-int"
+  ]
+}

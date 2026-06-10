@@ -106,12 +106,23 @@ def _simulate_population_day(
     # Density matrix: shape (T, N_ROOMS), values are occupancy / capacity.
     dens = sim.export_density_matrix()
 
-    # Compute welfare decomposition using the density-based proxy.
-    welfare = welfare_proxy_from_density(
-        density_matrix=dens,
-        type_a_count=int(day["type_a_completed"]),
-        type_b_count=int(day["type_b_completed"]),
-    )
+    # Per-attempted-visitor welfare comes directly from the simulator.
+    # Each visitor accumulated personal_importance / (1 + crowd_alpha *
+    # density^2) for every minute spent in a gallery room. The
+    # denominator is every visitor who attempted to visit (completed,
+    # still active, or queued), so a gating intervention that denies
+    # entry to some visitors is scored honestly: denied visitors enter
+    # the metric at zero, while admitted visitors get a quieter (higher-
+    # welfare-per-minute) experience and the comparison weighs the two.
+    # The earlier sum-over-completed version implicitly rewarded
+    # headcount, which is wrong: the museum's social object is delivered
+    # experience per unit of demand, not number of bodies admitted.
+    n_attempted = max(1.0, day["n_attempted"])
+    welfare = {
+        "total_welfare": day["mean_welfare_per_attempted"],
+        "type_a_welfare": day["experienced_welfare_type_a"] / n_attempted,
+        "type_b_welfare": day["experienced_welfare_type_b"] / n_attempted,
+    }
 
     # Mean density per room across all timesteps (for inequality metrics).
     room_density_means = dens.mean(axis=0) if dens.size else np.zeros(config.N_ROOMS)

@@ -1,0 +1,54 @@
+{
+  "phase0_capacity": {
+    "daily_visitors": 5000.0,
+    "avg_duration_min": 91.62162162162163,
+    "visitor_minutes": 458108.10810810816,
+    "avg_occupancy": 744.8912326961108,
+    "capacity": 900.0,
+    "within_capacity_on_average": 1.0
+  },
+  "graph_validation": {
+    "connected": true,
+    "corridors_have_high_degree": true,
+    "botticelli_forced_chain_ok": true,
+    "all_rooms_reachable_from_entry": true,
+    "all_pass": true
+  },
+  "calibration_5_days": {
+    "capacity_violations_mean": 0.0,
+    "capacity_violations_std": 0.0,
+    "completed_visitors_mean": 4846.2,
+    "completed_visitors_std": 31.649644547767043,
+    "experience_engagement_depth_mean": 0.5461163613032214,
+    "experience_engagement_depth_std": 0.002089318193742543,
+    "experience_intimacy_mean": 0.46697856295840784,
+    "experience_intimacy_std": 0.03308954097252966,
+    "experience_narrative_coherence_mean": 0.03435324268342792,
+    "experience_narrative_coherence_std": 0.0026267491343097767,
+    "experience_quality_mean": 1.8815584140200978,
+    "experience_quality_std": 0.032627074112020545,
+    "experience_surprise_mean": 0.8341102470750407,
+    "experience_surprise_std": 0.0012789928783582634,
+    "mean_inside_mean": 807.9912195121951,
+    "mean_inside_std": 1.2878339283904199,
+    "peak_botticelli_density_mean": 1.3163636363636364,
+    "peak_botticelli_density_std": 0.030424000964875405,
+    "peak_inside_mean": 900.0,
+    "peak_inside_std": 0.0,
+    "queue_peak_mean": 2356.2,
+    "queue_peak_std": 91.14384235920713,
+    "revenue_mean": 0.0,
+    "revenue_std": 0.0,
+    "type_a_completed_mean": 1403.6,
+    "type_a_completed_std": 46.736495375669755,
+    "type_b_completed_mean": 3442.6,
+    "type_b_completed_std": 47.55312818311746,
+    "n_days": 5.0
+  },
+  "env_random_rollout": {
+    "steps": 180,
+    "total_reward": 15.678116872852382,
+    "terminated": false,
+    "truncated": true
+  }
+}

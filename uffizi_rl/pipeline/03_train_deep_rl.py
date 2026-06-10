@@ -51,14 +51,28 @@ def main() -> None:
     ppo_returns = []
     for s in range(args.seeds):
         result = train_maskable_ppo(
-            timesteps=args.timesteps, seed=args.seed + s * 100, eval_episodes=5,
+            timesteps=args.timesteps, seed=args.seed + s * 100, eval_episodes=50,
+            save_path=f"{output_dir}/models/ppo_seed{s}.zip",
         )
         ppo_returns.append(result.mean_episode_reward)
-        print(f"  seed {s}: return={result.mean_episode_reward:.1f}")
+        # Per-seed mean is now over 50 common-random-number episodes; the
+        # within-seed std is eval noise (similar across seeds), while the
+        # spread of the per-seed MEANS is what we want to be small.
+        print(f"  seed {s}: return={result.mean_episode_reward:.1f} "
+              f"(within-seed std={result.std_episode_reward:.1f} over "
+              f"{result.episodes_eval} CRN episodes)")
 
     ppo_mean = float(np.mean(ppo_returns))
     ppo_std = float(np.std(ppo_returns, ddof=1)) if len(ppo_returns) > 1 else 0.0
-    print(f"  MaskablePPO: {ppo_mean:.1f} +/- {ppo_std:.1f}")
+    # Robust statistics: with several seeds, the median and IQR describe the
+    # typical converged policy without being dragged down by an occasional
+    # unstable seed, which the mean is sensitive to.
+    ppo_median = float(np.median(ppo_returns))
+    ppo_q1 = float(np.percentile(ppo_returns, 25))
+    ppo_q3 = float(np.percentile(ppo_returns, 75))
+    print(f"  MaskablePPO: mean {ppo_mean:.1f} +/- {ppo_std:.1f} | "
+          f"median {ppo_median:.1f} [IQR {ppo_q1:.1f}-{ppo_q3:.1f}] | "
+          f"per-seed {[round(x,1) for x in ppo_returns]}")
 
     print("[2/2] Ablations: PPO and DQN without action masking")
     ablations = train_ablations(timesteps=args.ablation_timesteps, seed=args.seed + 10)
@@ -71,6 +85,8 @@ def main() -> None:
         "maskable_ppo": {
             "mean_episode_reward": ppo_mean,
             "std_episode_reward": ppo_std,
+            "median_episode_reward": ppo_median,
+            "iqr": [ppo_q1, ppo_q3],
             "per_seed": ppo_returns,
         },
         "ablations": [r.__dict__ for r in ablations],

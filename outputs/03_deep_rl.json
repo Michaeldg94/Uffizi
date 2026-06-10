@@ -1,29 +1,19 @@
 {
+  "timesteps": 1000000,
+  "seeds": 1,
+  "env": "dense closing-pressure v2 (satiation + step-cost + mild closing-pressure + exit-bonus + noexit-penalty)",
   "maskable_ppo": {
-    "algorithm": "MaskablePPO_x9",
-    "timesteps": 500000,
-    "mean_episode_reward": 367.75611040685595,
-    "std_episode_reward": 5.071896691766578,
-    "n_seeds": 3,
-    "per_seed": [
-      363.47014165941107,
-      373.35553658883975,
-      366.44265297231703
+    "mean_episode_reward": -371.2606361714536,
+    "std_episode_reward": 7.257108782857049,
+    "median_episode_reward": -371.2606361714536,
+    "iqr": [
+      -371.2606361714536,
+      -371.2606361714536
     ],
-    "dependency_available": true
+    "per_seed": [
+      -371.2606361714536
+    ],
+    "seeds": 1
   },
-  "ablations": [
-    {
-      "algorithm": "PPO",
-      "mean_episode_reward": 10.73737357919807,
-      "std_episode_reward": 3.754936328892757,
-      "n_seeds": 3
-    },
-    {
-      "algorithm": "DQN",
-      "mean_episode_reward": 67.99776640736239,
-      "std_episode_reward": 17.922631168608465,
-      "n_seeds": 3
-    }
-  ]
+  "ablations": []
 }

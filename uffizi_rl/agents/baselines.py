@@ -189,8 +189,9 @@ def greedy_value_ratio_policy(env: ToyTabularEnv, state, mask: np.ndarray, rng: 
     for n in neighbors:
         imp = env.g.nodes[n]["importance"]
         dens = env._crowd_level(n, env.t)  # noqa: SLF001
-        # Same formula as the environment reward (without novelty or step cost).
-        scores.append(imp / (1.0 + config.TYPE_A_CROWD_ALPHA * dens))
+        # Same formula as the environment reward (without novelty or
+        # step cost). Quadratic in density to match the env reward.
+        scores.append(imp / (1.0 + config.TYPE_A_CROWD_ALPHA * dens * dens))
     return int(np.argmax(scores) + 1)
 
 
@@ -236,10 +237,12 @@ def peak_avoidance_policy(env: ToyTabularEnv, state, mask: np.ndarray, rng: np.r
         for n in filtered:
             imp = env.g.nodes[n]["importance"]
             dens = env._crowd_level(n, env.t)  # noqa: SLF001
-            # Deliberately uses a softer alpha (2.5) than the RL agent (6.0)
-            # to test whether a simple avoid-and-greedily-pick heuristic
-            # can compete with the learned policy.
-            scores.append(imp / (1.0 + 2.5 * dens))
+            # Deliberately uses a softer alpha (2.5) than the RL agent
+            # (6.0) to test whether a simple avoid-and-greedily-pick
+            # heuristic can compete with the learned policy. Quadratic
+            # density term keeps the formula shape consistent across
+            # baselines and learned agents.
+            scores.append(imp / (1.0 + 2.5 * dens * dens))
         best = filtered[int(np.argmax(scores))]
     else:
         # All neighbors are crowded Botticelli; fall back to the first.
@@ -265,6 +268,17 @@ def _wrap_policy(env: ToyTabularEnv, fn: PolicyFn, seed: int):
     rng = config.get_rng(seed)
 
     def _policy(state, mask):
+        # Competent egress: a sensible human policy leaves before closing.
+        # When only just enough time remains to walk to the nearest exit
+        # (slack of one step), head straight there instead of following the
+        # heuristic. This lets the baselines exit voluntarily and avoid the
+        # closing-time ejection, so the comparison with RL is about routing
+        # and crowd-timing skill, not about who remembered to leave.
+        if env.current_room != "EXIT":
+            t_remaining = env.horizon - env.t
+            d = env._dist_exit.get(env.current_room, 999)
+            if t_remaining <= d + 1:
+                return env._eject_action()
         return fn(env, state, mask, rng)
 
     return _policy

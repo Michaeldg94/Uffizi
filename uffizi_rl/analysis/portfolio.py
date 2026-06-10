@@ -3,7 +3,7 @@
 This module implements a three-stage pipeline for selecting the best
 combination of museum management interventions:
 
-  Stage 1 (screen): evaluate each of the 30 curated interventions in
+  Stage 1 (screen): evaluate each curated intervention in
     isolation to measure its marginal welfare and revenue impact.
 
   Stage 2 (greedy forward selection): starting from the empty portfolio,
@@ -20,7 +20,7 @@ All evaluations use common random numbers (same seed) so that
 differences between portfolios are attributable to the intervention
 mix, not to simulation noise.
 
-The 30 curated interventions span six categories:
+The curated interventions span several categories:
   - Access control (timed entry, gating, caps)
   - Demand redistribution (trails, audio guides, nudges)
   - Pricing (surcharges, annual passes, free windows)
@@ -104,10 +104,10 @@ class PortfolioResult:
 
 
 # =============================================================================
-# The 30 curated interventions
+# The curated interventions
 # =============================================================================
 # Each InterventionSpec bundles a name, a display label, and the kwargs
-# that activate it in CrowdSimulator. The 30 interventions are grouped
+# that activate it in CrowdSimulator. The curated interventions are grouped
 # by mechanism:
 #
 # ACCESS CONTROL (items 1-3): directly limit or schedule entry.
@@ -185,60 +185,100 @@ class PortfolioResult:
 #     congested rooms in real time.
 
 CURATED_INTERVENTIONS: List[InterventionSpec] = [
+    # The catalog has been filtered down to Pigovian / common-pool
+    # governance interventions only. Every entry below either taxes a
+    # congestion externality directly (group surcharge), caps the
+    # behavior that creates the externality (group cap, slot cap, timed
+    # entry, quiet hours), or redistributes demand away from the four
+    # masterpiece rooms during peak hours (multi-room buffer, queue-to-
+    # content, alternative attractors, predictive routing).
+    #
+    # Interventions that boost the naive welfare metric by adding
+    # off-peak visitors (locals, free lunch entry, etc.) without
+    # reducing peak masterpiece density have been REMOVED from the
+    # portfolio candidate set because they do not address the actual
+    # externality. Their implementations remain in the simulator for
+    # ablation/sensitivity studies but they are not considered in the
+    # optimal portfolio search.
+    #
     # --- Access control ---
-    InterventionSpec("decoupled_botticelli_gating", "Decoupled Bott. Gating", {"decoupled_botticelli_gating": True}),
-    InterventionSpec("tour_group_cap", "Tour Group Cap (15)", {"tour_group_cap": 15}),
+    # Tour group cap = 10 visitors. Half of the median gallery room
+    # capacity (median ~25), so no single group occupies more than
+    # half of any typical room.
+    InterventionSpec("tour_group_cap", "Tour Group Cap (10)", {"tour_group_cap": 10}),
+    # Timed entry = visitors are admitted in fixed slots and comply
+    # exactly. Useful as a baseline alternative to RAMA when only the
+    # entrance is booked (not the masterpieces).
     InterventionSpec("timed_entry", "Timed Entry", {"timed_entry": True}),
-    # --- Pricing ---
-    InterventionSpec("resident_annual_pass", "Resident Annual Pass", {"resident_annual_pass": True}),
-    # --- Content-based redistribution ---
-    InterventionSpec("temporary_exhibit_room", "Temporary Exhibition", {"temporary_exhibit_room": "A20"}),
-    InterventionSpec("skip_the_famous", "Skip-the-Famous (20%)", {"skip_the_famous": 0.20}),
-    InterventionSpec("themed_weeks", "Themed Week (Caravaggio)", {"themed_weeks": "caravaggio"}),
-    # --- Physical design ---
-    InterventionSpec("multi_room_buffer", "Multi-Room Buffer", {"multi_room_buffer": True}),
-    # --- Information provision ---
-    InterventionSpec("crowd_forecast", "Crowd Forecast", {"crowd_forecast": True}),
-    # --- Behavioral nudges ---
-    InterventionSpec("achievement_system", "Achievement System", {"achievement_system": True}),
-    # --- Time architecture ---
-    InterventionSpec("last_hour_locals", "Last-Hour Locals", {"last_hour_locals": True}),
-    # --- Behavioral nudges ---
-    InterventionSpec("adaptive_audio_guide", "Adaptive Audio Guide", {"adaptive_audio_guide": True}),
-    # --- Time architecture ---
-    InterventionSpec("lunch_free_entry", "Lunch Free Entry", {"lunch_free_entry": True}),
-    # --- Routing ---
-    InterventionSpec("vasari_narration", "Vasari Narration", {"vasari_narration": True}),
-    # --- Time architecture ---
+    # Quiet Hours: no tour groups before 11:00 (real, defensible) +
+    # 15% reduction in arrival rate during the morning quiet window
+    # (assumption: "premium quiet" marketing suppresses casual demand).
     InterventionSpec("quiet_hours", "Quiet Hours", {"quiet_hours": True}),
-    # --- Content-based redistribution ---
-    InterventionSpec("designated_photo_spots", "Photo Spots", {"designated_photo_spots": True}),
-    InterventionSpec("comparative_displays", "Comparative Displays", {"comparative_displays": True}),
-    # --- Routing ---
-    InterventionSpec("weather_routing", "Weather Routing", {"weather_routing": "rain"}),
-    # --- Physical design ---
-    InterventionSpec("sound_design", "Sound Design", {"sound_design": True}),
-    # --- Routing ---
-    InterventionSpec("adaptive_trail", "Adaptive Trail", {"adaptive_trail": True}),
-    InterventionSpec("predictive_routing", "Predictive Routing", {"predictive_routing": True}),
-    InterventionSpec("room_nobody_knows", "Room Nobody Knows", {"room_nobody_knows": "A22"}),
-    # --- Physical design ---
-    InterventionSpec("seating_strategy", "Seating Strategy", {"seating_strategy": True}),
-    # --- Information provision ---
-    InterventionSpec("progress_bar", "Progress Bar", {"progress_bar": True}),
-    InterventionSpec("social_proof_nudge", "Social Proof Nudge", {"social_proof_nudge": True}),
-    InterventionSpec("queue_to_content", "Queue-to-Content", {"queue_to_content": True}),
-    # --- Physical design ---
-    InterventionSpec("social_media_spot", "Social Media Spot", {"social_media_spot": "A16"}),
-    # --- Content-based redistribution ---
-    InterventionSpec("painting_talks", "Painting Talks", {"painting_talks": True}),
     # --- Pricing ---
-    InterventionSpec("per_person_group_surcharge", "Group Surcharge (EUR12)", {"per_person_group_surcharge": 12.0}),
-    # --- Routing (compound: adjusts two simulator parameters at once) ---
-    InterventionSpec("hidden_gem_trails", "Hidden Gem Trails", {"trail_acceptance_prob": 0.40, "heterogeneity_scale": 1.25}),
+    # Pigovian group surcharge on top of the EUR 70 baseline group fee.
+    # An extra EUR 70 doubles the group price (to EUR 140), suppressing
+    # tour group demand via standard price elasticity.
+    # Aggressive Pigovian surcharge: +EUR150 on top of baseline EUR 70
+    # = EUR 220 per group of 15. Designed to nearly eliminate tour-group
+    # demand by pricing the externality of coordinated 15-person
+    # movement through narrow corridors.
+    InterventionSpec("per_person_group_surcharge", "Group Surcharge (+EUR150 flat)", {"per_person_group_surcharge": 150.0}),
+    # --- Headline interventions ---
+    InterventionSpec("rama", "RAMA (Reservation-Anchored Masterpiece Access)", {"rama": True}),
+    InterventionSpec(
+        "secondary_attractor_enrichment",
+        "Secondary-Attractor Enrichment",
+        {"secondary_attractor_enrichment": True},
+    ),
+    InterventionSpec(
+        "rama_plus_enrichment",
+        "RAMA + Secondary-Attractor Enrichment",
+        {"rama": True, "secondary_attractor_enrichment": True},
+    ),
+    # --- Capacity / pricing levers ---
+    # Extended hours: 7:00-19:00 (12-hour day, vs 8:15-18:30 baseline).
+    # More entrance slots, more masterpiece slots, more total visits.
+    InterventionSpec("extended_hours", "Extended Hours (7:00-19:00)", {"extended_hours": True}),
+    # Time-of-day price differentiation: dawn slot 15 EUR, mid-morning
+    # 20, midday standard 25, peak afternoon 30, late afternoon
+    # discount 18. Price elasticity = 0.5 (research-grounded
+    # ballpark for museum demand, e.g. Cellini & Cuccia 2018).
+    InterventionSpec("dynamic_pricing", "Dynamic Pricing (peak surcharge)", {"dynamic_pricing": True}),
+    # Expanded annual pass program: doubles the take-up of the EUR 80
+    # Florentine annual pass [UFF]. Adds another 200 short-budget
+    # residents to the daily mix at amortised cost (EUR 8/visit).
+    InterventionSpec(
+        "resident_annual_pass",
+        "Expanded Annual Pass Program",
+        {"resident_annual_pass": True},
+    ),
+    # Combo: extended hours + dynamic pricing + RAMA + enrichment.
+    InterventionSpec(
+        "rama_enrich_extended_priced",
+        "RAMA + Enrichment + Extended Hours + Dynamic Pricing",
+        {"rama": True, "secondary_attractor_enrichment": True,
+         "extended_hours": True, "dynamic_pricing": True},
+    ),
 ]
-# Hard assertion: the publication commits to exactly 30 interventions.
-assert len(CURATED_INTERVENTIONS) == 30
+# Catalog is now 11 specs: 9 distinct levers plus 2 pre-bundled combos
+# (RAMA+Enrichment, and RAMA+Enrichment+Extended+Pricing). The earlier
+# brainstormed catalog had far more; the ones below did NOT survive a
+# brutally honest audit and were cut:
+#   - Decoupled Masterpiece Gating  (superseded by RAMA)
+#   - Multi-Room Buffer, Queue-to-Content  (magic magnetism boost on
+#     A10 with no realistic trigger mechanism)
+#   - Predictive Routing  (under RAMA, masterpieces are always at cap
+#     so predicting their density is tautological)
+#   - Adaptive Trail, Hidden Gem Trails  (under RAMA, art lovers have
+#     pre-booked itineraries; re-routing them at entry is incoherent)
+#   - Room Nobody Knows, Temporary Exhibition  (assumed importance
+#     boosts of +5 / +1.75 are wildly unrealistic for a small mini-
+#     exhibit; real effect is closer to +0.5-1.0)
+#   - Weather Routing  (rain effect modelled as -3 importance is the
+#     wrong mechanic; would be a multiplicative visit-rate effect)
+#   - Quiet Hours Tour-Ban-Only / Arrival-Reduction-Only ablations
+#     (combined version retained)
+assert len(CURATED_INTERVENTIONS) == 11
 # Lookup table for O(1) access by name.
 _INTERVENTION_BY_NAME = {spec.name: spec for spec in CURATED_INTERVENTIONS}
 
@@ -336,11 +376,11 @@ def curated_intervention_specs() -> List[InterventionSpec]:
 
 
 def combined_intervention_kwargs() -> Dict:
-    """Return the kwargs for the full 30-intervention bundle.
+    """Return the kwargs for the full curated-intervention bundle.
 
-    Useful for evaluating the "kitchen sink" portfolio where every
-    intervention is active simultaneously. Note: later interventions
-    overwrite conflicting keys from earlier ones (last-write-wins).
+    Turns on every curated intervention at once (the "kitchen sink"
+    portfolio). Note: later interventions overwrite conflicting keys from
+    earlier ones (last-write-wins).
     """
 
     return _merge_kwargs([spec.name for spec in CURATED_INTERVENTIONS])
@@ -439,7 +479,7 @@ def screen_interventions(
 # picks the one that most improves the objective, and locks it in.
 # The process stops when no candidate improves the objective.
 #
-# WHY greedy: with 30 interventions, the full combinatorial space has
+# WHY greedy: with this many interventions, the full combinatorial space has
 # 2^30 ~ 1 billion subsets. Greedy narrows this to at most 30 rounds
 # of 30 evaluations = 900 simulator calls, which is tractable.
 #
@@ -528,7 +568,7 @@ def greedy_portfolio(
 #   - For each intervention IN the portfolio: try removing it.
 #   - For each intervention NOT in the portfolio: try adding it.
 # If any move improves the objective, accept it and repeat.
-# Stop when a full pass over all 30 interventions finds no improvement
+# Stop when a full pass over all curated interventions finds no improvement
 # (local optimum), or after n_iterations passes.
 #
 # WHY 1-opt after greedy: greedy may include an intervention that was

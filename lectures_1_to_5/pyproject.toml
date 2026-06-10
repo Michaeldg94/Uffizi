@@ -1,0 +1,21 @@
+[project]
+name = "uffizi-rl"
+version = "1.0.0"
+description = "Reinforcement Learning for Museum Visitor Flow Optimization at the Uffizi Gallery"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    # Core scientific computing
+    "numpy>=1.26",
+    "networkx>=3.2",
+    # Gymnasium environment wrapper
+    "gymnasium>=0.29",
+    # Plotting
+    "matplotlib>=3.8",
+    "seaborn>=0.13",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]

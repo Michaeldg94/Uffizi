@@ -43,6 +43,8 @@ from typing import Dict, Sequence
 
 import numpy as np
 
+from uffizi_rl import config
+
 # Plotting libraries are optional; the module degrades gracefully without them.
 try:
     import matplotlib.pyplot as plt
@@ -89,13 +91,13 @@ def _apply_theme() -> None:
 def _save_figure(out: Path) -> None:
     """Save the current figure as both PNG and PDF, then close it.
 
-    PNG is saved at 220 DPI for high-resolution screen display.
+    PNG is saved at 300 DPI for high-resolution display.
     PDF is vector-based for lossless LaTeX inclusion.
     ``bbox_inches="tight"`` trims whitespace around the figure.
     """
     _ensure_dir(out)
     plt.tight_layout()
-    plt.savefig(out, dpi=220, bbox_inches="tight")
+    plt.savefig(out, dpi=300, bbox_inches="tight")
     plt.savefig(out.with_suffix(".pdf"), bbox_inches="tight")
     plt.close()
 
@@ -421,7 +423,12 @@ def plot_room_capacity_distribution(rooms_data: Sequence[Dict], out_path: str) -
 
 def plot_top_congested_rooms(room_density_pairs: Sequence, out_path: str,
                               top_n: int = 15) -> bool:
-    """Horizontal bar chart of the most congested rooms (mean density)."""
+    """Horizontal bar chart of the most congested rooms (mean density).
+
+    The y-axis shows each room's human-readable name (looked up from
+    config.ROOM_DATA) rather than the bare room ID, so the reader can
+    immediately see which famous galleries are at the top.
+    """
 
     if not HAS_PLOT:
         return False
@@ -430,9 +437,15 @@ def plot_top_congested_rooms(room_density_pairs: Sequence, out_path: str,
     top = list(room_density_pairs)[:top_n]
     rooms = [p[0] for p in top]
     dens = [p[1] for p in top]
+    # Resolve each room ID to its display name. Fall back to the ID if
+    # the room is not in ROOM_DATA (defensive).
+    labels = []
+    for rid in rooms:
+        name = config.ROOM_DATA.get(rid, {}).get("name")
+        labels.append(f"{name} ({rid})" if name else rid)
     colors = ["#B14D4D" if d > 1.0 else "#D49B6C" if d > 0.5 else "#1F4E5F" for d in dens]
-    plt.figure(figsize=(10, 6))
-    plt.barh(rooms[::-1], dens[::-1], color=colors[::-1], edgecolor="white")
+    plt.figure(figsize=(11, 6))
+    plt.barh(labels[::-1], dens[::-1], color=colors[::-1], edgecolor="white")
     plt.axvline(1.0, color="black", linestyle="--", alpha=0.6,
                 label="Capacity (density = 1.0)")
     plt.xlabel("Mean Density (occupancy / capacity)")
@@ -499,16 +512,29 @@ def plot_visitors_inside_over_day(density_matrix: np.ndarray,
 
 
 def plot_baseline_comparison(baselines: Sequence[Dict], q_learning_return: float,
-                              out_path: str) -> bool:
-    """Bar chart: Q-learning vs each of the 5 baseline policies."""
+                              out_path: str,
+                              double_q_return: float | None = None) -> bool:
+    """Bar chart comparing the Q-learning family against the 5 baselines.
+
+    Always shows the five baselines and vanilla Q-learning. If
+    ``double_q_return`` is provided, a second blue bar is added so the
+    reader can see both members of the tabular Q-learning family on the
+    same chart.
+    """
 
     if not HAS_PLOT:
         return False
     out = Path(out_path)
     _apply_theme()
+
     names = [b["name"] for b in baselines] + ["q_learning"]
     returns = [b["mean_return"] for b in baselines] + [q_learning_return]
     colors = ["#8B6F47"] * len(baselines) + ["#1F4E5F"]
+    if double_q_return is not None:
+        names.append("double_q_learning")
+        returns.append(double_q_return)
+        colors.append("#3F7E8F")  # lighter blue to distinguish from vanilla Q
+
     plt.figure(figsize=(10, 5))
     bars = plt.bar(names, returns, color=colors, edgecolor="white")
     for bar, val in zip(bars, returns):
@@ -516,7 +542,7 @@ def plot_baseline_comparison(baselines: Sequence[Dict], q_learning_return: float
                  f"{val:.1f}", ha="center", fontsize=9)
     plt.xlabel("Policy")
     plt.ylabel("Mean Episode Return")
-    plt.title("Q-Learning vs Handcrafted Baselines (12-Room Toy Graph)")
+    plt.title("Q-Learning Family vs Handcrafted Baselines (12-Room Toy Graph)")
     plt.xticks(rotation=20, ha="right")
     plt.grid(alpha=0.3, axis="y")
     _save_figure(out)

@@ -93,8 +93,16 @@ class TrainResult:
 # Evaluation
 # =============================================================================
 
-def evaluate_policy(model, env: UffiziEnv, n_episodes: int = 5) -> Dict[str, float]:
+def evaluate_policy(model, env: UffiziEnv, n_episodes: int = 50,
+                    crn_seed_base: int = 900_000) -> Dict[str, float]:
     """Evaluate a trained policy deterministically over ``n_episodes`` rollouts.
+
+    Uses COMMON RANDOM NUMBERS: episode ``i`` is always run on crowd scenario
+    ``crn_seed_base + i`` (which fixes both the NPC crowd and the agent's
+    profile), identical regardless of the model's training seed. This way the
+    reward gap between two training seeds reflects the policy, not which random
+    crowds each happened to be scored on. Returns mean, std, and the standard
+    error of the mean (sem = std / sqrt(n)), which shrinks as n_episodes grows.
 
     Action masks are passed to ``model.predict`` when the model supports them
     (MaskablePPO does; vanilla PPO/DQN do not).  The try/except handles the
@@ -106,7 +114,13 @@ def evaluate_policy(model, env: UffiziEnv, n_episodes: int = 5) -> Dict[str, flo
     """
 
     rewards = []
-    for _ in range(n_episodes):
+    for i in range(n_episodes):
+        # Common random numbers: pin this episode's crowd + agent profile to
+        # the fixed seed crn_seed_base + i (the env builds its CrowdSimulator
+        # from seed_value + _episode_counter), so every model is scored on the
+        # exact same scenarios.
+        env.seed_value = crn_seed_base
+        env._episode_counter = i
         obs, _ = env.reset()
         done = False
         trunc = False
@@ -114,17 +128,25 @@ def evaluate_policy(model, env: UffiziEnv, n_episodes: int = 5) -> Dict[str, flo
         while not (done or trunc):
             action_mask = env.get_action_mask()
             try:
-                # MaskablePPO accepts action_masks; vanilla models raise TypeError.
-                action, _ = model.predict(obs, deterministic=True, action_masks=action_mask)
+                # Evaluate the STOCHASTIC policy (deterministic=False). PPO learns
+                # a stochastic policy; under the egress reward the greedy argmax
+                # collapses into a non-exiting loop (never picks EXIT), while the
+                # sampled policy exits reliably. So the greedy eval badly
+                # understates the learned policy; we score the policy as trained.
+                action, _ = model.predict(obs, deterministic=False, action_masks=action_mask)
             except TypeError:
                 # Fallback for models that do not support masking (ablations).
-                action, _ = model.predict(obs, deterministic=True)
+                action, _ = model.predict(obs, deterministic=False)
             obs, reward, done, trunc, _ = env.step(int(action))
             ep_reward += reward
         rewards.append(ep_reward)
+    n = len(rewards)
+    std = float(np.std(rewards, ddof=1)) if n > 1 else 0.0
     return {
         "mean": float(np.mean(rewards)),
-        "std": float(np.std(rewards, ddof=1) if len(rewards) > 1 else 0.0),
+        "std": std,
+        "sem": float(std / np.sqrt(n)) if n > 1 else 0.0,
+        "n": n,
     }
 
 
@@ -202,7 +224,7 @@ def _make_env(seed: int, rank: int, env_kwargs: Dict[str, int | float | bool]):
 # Curriculum design
 # =============================================================================
 
-def _curriculum_stages(total_timesteps: int) -> list[tuple[int, Dict[str, int | float | bool]]]:
+def _curriculum_stages(total_timesteps: int, peak_crowd: int = config.DAILY_VISITORS_NORMAL) -> list[tuple[int, Dict[str, int | float | bool]]]:
     """Return a list of (timesteps, env_kwargs) pairs defining the curriculum.
 
     3-stage curriculum (when total_timesteps >= 20 000)
@@ -227,20 +249,25 @@ def _curriculum_stages(total_timesteps: int) -> list[tuple[int, Dict[str, int | 
 
     # Skip curriculum for short runs (smoke tests, CI).
     if total_timesteps < 20_000:
-        return [(int(total_timesteps), {"daily_total": config.DAILY_VISITORS_NORMAL, "episode_minutes": 180})]
+        return [(int(total_timesteps), {"daily_total": peak_crowd, "episode_minutes": config.MUSEUM_OPEN_MINUTES})]
 
     # Fraction of total budget allocated to each stage. [assumption]
     stage_fracs = [0.15, 0.35, 0.50]
     stage_steps = [int(total_timesteps * frac) for frac in stage_fracs]
     # Absorb rounding residual into the last (hardest) stage.
     stage_steps[-1] = int(total_timesteps - sum(stage_steps[:-1]))
+    # The day is ALWAYS the full open period: closing is the only time bound,
+    # not an artificial budget. The curriculum ramps only the crowd size,
+    # scaled to peak_crowd so we can iterate on a smaller crowd for speed.
+    full_day = config.MUSEUM_OPEN_MINUTES
+    # random_start=True: exploring starts during TRAINING (each episode begins in
+    # a random gallery room) so the agent learns the dwell-then-move rule across
+    # the whole museum and escapes the A1-local trap. Evaluation uses a separate
+    # env with random_start=False (honest A1 start).
     stage_envs = [
-        # Stage 1: easy. Low crowd, short episodes.
-        {"daily_total": 1800, "episode_minutes": 120},
-        # Stage 2: medium. Moderate crowd, medium episodes.
-        {"daily_total": 3200, "episode_minutes": 150},
-        # Stage 3: full scale. Matches the real Uffizi scenario.
-        {"daily_total": config.DAILY_VISITORS_NORMAL, "episode_minutes": 180},
+        {"daily_total": int(0.36 * peak_crowd), "episode_minutes": full_day, "random_start": True},  # easy: light crowd
+        {"daily_total": int(0.64 * peak_crowd), "episode_minutes": full_day, "random_start": True},  # medium crowd
+        {"daily_total": int(peak_crowd),        "episode_minutes": full_day, "random_start": True},  # full target crowd
     ]
     return list(zip(stage_steps, stage_envs))
 
@@ -252,8 +279,10 @@ def _curriculum_stages(total_timesteps: int) -> list[tuple[int, Dict[str, int | 
 def train_maskable_ppo(
     timesteps: int = config.PPO_TIMESTEPS_DEFAULT,
     seed: int = config.DEFAULT_SEED,
-    eval_episodes: int = 5,
+    eval_episodes: int = 50,
     n_envs: int = 1,
+    save_path: str | None = None,
+    peak_crowd: int = config.DAILY_VISITORS_NORMAL,
 ) -> TrainResult:
     """Train MaskablePPO with a 3-stage curriculum and tuned hyperparameters.
 
@@ -317,19 +346,22 @@ def train_maskable_ppo(
         return ActionMasker(env, get_action_mask)
 
     # ---- Build curriculum stages -------------------------------------------
-    stages = _curriculum_stages(int(timesteps))
+    stages = _curriculum_stages(int(timesteps), peak_crowd=peak_crowd)
     vec_env = _build_vec_env(seed, stages[0][1])
 
     # ---- Hyperparameters ---------------------------------------------------
-    # learning_rate: linear warmup schedule.  Starts at 1e-4 (conservative,
-    #   prevents destructive updates early when the policy is random) and
-    #   ramps to 3e-4 as training progresses.  ``progress`` goes from 1.0
-    #   (start of training) to 0.0 (end), so 1e-4 + 2e-4 * progress gives
-    #   3e-4 at the start and 1e-4 at the end: a linear decay. [assumption]
-    # n_steps: rollout length per environment before each PPO update.
-    #   Base 2048 divided across parallel envs (each env contributes its
-    #   share of experience), floored at 1024 to keep variance manageable.
-    # batch_size: 256 minibatch size for SGD updates. [assumption]
+    # learning_rate: linear decay schedule. ``progress`` goes from 1.0 (start)
+    #   to 0.0 (end), so 1e-4 + 1e-4 * progress gives 2e-4 at the start and
+    #   1e-4 at the end. The ceiling was lowered from 3e-4 to 2e-4 because a
+    #   higher peak LR occasionally let a seed take a destructive update into a
+    #   worse basin (one of three seeds landed ~100 reward below the others);
+    #   the lower ceiling trades a little speed for more consistent
+    #   seed-to-seed convergence. [assumption]
+    # n_steps: rollout length before each PPO update. Raised from 2048 to 4096
+    #   so each gradient/advantage estimate averages over more experience,
+    #   reducing update variance and seed sensitivity. [assumption]
+    # batch_size: 512 minibatch (raised from 256) for lower-variance SGD
+    #   updates, pairs with the larger rollout. [assumption]
     # n_epochs: 8 passes over each rollout buffer.  Higher than the PPO
     #   default of 4 because action masking reduces wasted gradient signal,
     #   so more epochs do not overfit as quickly. [assumption]
@@ -349,16 +381,16 @@ def train_maskable_ppo(
     model = MaskablePPO(
         "MlpPolicy",
         vec_env,
-        learning_rate=lambda progress: 1e-4 + 2e-4 * progress,
-        n_steps=max(1024, 2048 // max(1, n_envs)),
-        batch_size=256,
+        learning_rate=lambda progress: 1e-4 + 1e-4 * progress,
+        n_steps=max(2048, 4096 // max(1, n_envs)),
+        batch_size=512,
         n_epochs=8,
         gamma=0.995,
         gae_lambda=0.98,
-        ent_coef=0.01,
+        ent_coef=0.005,  # sharper than 0.01 (longer dwells, more reliable greedy); safe now that the tour potential supplies directed exploration toward the masterpieces (bare 0.003 collapsed before the tour pull existed)
         clip_range=0.2,
         seed=seed,
-        verbose=0,
+        verbose=1,  # log SB3 training tables so runs show live progress
         policy_kwargs={"net_arch": [256, 256]},
     )
 
@@ -381,8 +413,16 @@ def train_maskable_ppo(
 
     # ---- Post-training evaluation ------------------------------------------
     # Use a fresh env with a distant seed to avoid evaluating on training data.
-    eval_env = UffiziEnv(seed=seed + 10_000, episode_minutes=180)
+    eval_env = UffiziEnv(seed=seed + 10_000, episode_minutes=config.MUSEUM_OPEN_MINUTES, daily_total=peak_crowd)
     metrics = evaluate_policy(model, eval_env, n_episodes=eval_episodes)
+
+    # ---- Persist the trained policy ----------------------------------------
+    # Save so the model can be re-evaluated later (e.g. on more CRN episodes)
+    # or reused for figures without a multi-hour retrain.
+    if save_path is not None:
+        from pathlib import Path as _Path
+        _Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+        model.save(save_path)
 
     # ---- Cleanup -----------------------------------------------------------
     try:

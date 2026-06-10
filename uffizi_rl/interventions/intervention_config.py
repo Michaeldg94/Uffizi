@@ -81,9 +81,18 @@ class InterventionConfig:
     # None = no cap (default group size is 30).
     tour_group_cap: int | None = None
 
-    # Places a temporary high-importance exhibit in the specified room
-    # (e.g., "A20"). Creates a new attractor to redistribute demand.
-    temporary_exhibit_room: str | None = None
+    # Temporary exhibit program. Three valid forms:
+    #   None        -> intervention off (default).
+    #   str ("Ax")  -> place a single high-importance exhibit in that
+    #                  specific room.
+    #   True        -> activate the full rotating program: boost the
+    #                  importance of every room in
+    #                  config.TEMPORARY_EXHIBIT_ROOMS. The per-room
+    #                  boost is scaled down so the total demand
+    #                  redirection is comparable to the single-room
+    #                  variant. This is the parameter-free portfolio
+    #                  form and avoids hardcoding any single room ID.
+    temporary_exhibit_room: str | bool | None = None
 
     # Bans photography in bottleneck rooms (A11, A12), reducing dwell
     # time by ~40% and increasing throughput.
@@ -111,9 +120,16 @@ class InterventionConfig:
     # These interventions change room-level properties (importance,
     # magnetism) to reshape how visitors perceive and use specific rooms.
 
-    # Daily featured underused room announced on social media.
-    # Creates FOMO and redirects attention. Value is the room ID (e.g., "A22").
-    room_nobody_knows: str | None = None
+    # "Room nobody knows" social-media program. Three valid forms:
+    #   None        -> intervention off (default).
+    #   str ("Ax")  -> feature that one specific room.
+    #   True        -> rotate the daily feature across every room in
+    #                  config.ROOM_NOBODY_KNOWS_CANDIDATES, with each
+    #                  candidate receiving a per-room boost scaled by
+    #                  the number of candidates so the total
+    #                  redirection is comparable. This is the
+    #                  parameter-free portfolio form.
+    room_nobody_knows: str | bool | None = None
 
     # A restorer works visibly in the specified room, creating dwell
     # time where it is wanted. Value is the room ID.
@@ -170,6 +186,19 @@ class InterventionConfig:
     # Per-person surcharge for tour group members (EUR). Internalizes
     # the congestion externality of groups. 0.0 = no surcharge.
     per_person_group_surcharge: float = 0.0
+
+    # Pensioner reduced rate: when True, visitors aged 65+ pay EUR 20
+    # (PENSIONER_REDUCED_PRICE) instead of the standard adult ticket.
+    pensioner_pricing: bool = False
+
+    # Family discount: when True, adult visitors travelling with a kid
+    # (under-18) get EUR 5 off their ticket. ~30% of paying adults are
+    # eligible (PARENT_WITH_KIDS_FRACTION).
+    family_discount: bool = False
+
+    # Audio guide revenue stream: when True, ~25% of paying adults pay
+    # an additional EUR 6 for an audio guide.
+    audio_guide_revenue: bool = False
 
     # =========================================================================
     # Group D: Movement model
@@ -310,9 +339,64 @@ class InterventionConfig:
     # of the east, creating counterflow that spreads demand.
     counterflow_incentive: bool = False
 
-    # No tour groups allowed before 11:00, protecting the morning
-    # window for crowd-sensitive (Type A) visitors.
+    # Quiet hours bundle two separable policies during the morning
+    # window (config.QUIET_HOURS_WINDOW):
+    #   (a) Ban tour groups - tour group fraction goes to zero,
+    #       protecting the morning slot from coordinated group flows.
+    #   (b) Reduce overall arrivals by 15% - "premium quiet" marketing
+    #       suppresses casual walk-in demand for a more selective crowd.
+    # The flag below activates both for backward compatibility, but
+    # the two underlying mechanisms can be controlled independently
+    # via quiet_hours_tour_ban and quiet_hours_arrival_reduction so
+    # ablation studies can attribute welfare gains to the right cause.
     quiet_hours: bool = False
+    # When True, ban tour groups during the quiet window. Activated
+    # automatically if quiet_hours is True.
+    quiet_hours_tour_ban: bool = False
+    # When True, reduce overall arrival rate by 15% during the quiet
+    # window. Activated automatically if quiet_hours is True.
+    quiet_hours_arrival_reduction: bool = False
+
+    # Reservation-Anchored Masterpiece Access (RAMA). Booking-based
+    # timed entry to the four masterpiece rooms. Mechanism:
+    #   1. No walk-ins. Walk-in flag is force-disabled.
+    #   2. Each masterpiece offers 15-minute slots throughout the day,
+    #      each with capacity RAMA_SLOT_CAPACITY (default 20). Visitors
+    #      self-select slots at booking time (= visitor creation) based
+    #      on their segment: art lovers book widely spaced slots,
+    #      Instagram tourists book back-to-back (see
+    #      config.RAMA_BOOKING_PREFERENCES). FIFO capacity: if the
+    #      preferred slot is full, the visitor takes the next available
+    #      forward. Sold-out visitors get no slot and won't visit that
+    #      room at all.
+    #   3. The visitor's PERSONAL importance for a masterpiece room is
+    #      suppressed to zero whenever current_time is outside that
+    #      room's booked window (or when there is no booking). The
+    #      visitor naturally avoids the room until their slot opens
+    #      rather than walking into a gate.
+    #   4. Hard 15-minute dwell cap inside masterpieces (Last-Supper-
+    #      Milan style) forces turnover during the slot.
+    # Same headcount, capped peak density, self-stratifying flow.
+    rama: bool = False
+
+    # Extended opening hours. When True, the museum opens at 07:00 and
+    # closes at 19:00 (12-hour day = 720 min, vs baseline 8:15-18:30
+    # = 615 min). Last entry pushed back to 18:00 (660 min from open).
+    # Under RAMA this also creates more masterpiece slots, increasing
+    # total daily masterpiece throughput by roughly 17% (66 vs 61 slots
+    # in the 12-hour day with 10-min slot duration). [assumption]
+    extended_hours: bool = False
+
+    # Secondary-attractor enrichment. Applies the curatorial table in
+    # config.ROOM_CURATION to 14 pre-masterpiece rooms. Each room gets
+    # 2-4 sensory channels (visual, audio, tactile, olfactory, live)
+    # with research-grounded effect sizes summed onto importance and
+    # magnetism. Goal: give visitors compelling alternatives upstream
+    # of the four masterpiece bottlenecks so flow distributes by
+    # behavioural attraction rather than denial. Designed as the
+    # companion to RAMA: RAMA stops the rush via commitment device,
+    # enrichment gives no-slot visitors meaningful destinations.
+    secondary_attractor_enrichment: bool = False
 
     # Professional lighting in designated rooms for photography,
     # pulling the selfie crowd away from Botticelli.

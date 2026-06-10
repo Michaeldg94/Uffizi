@@ -3,7 +3,16 @@
 This module builds the NetworkX graph that represents the physical layout of
 the Uffizi Gallery.  Every room is a node (with attributes: name, section,
 importance, magnetism, capacity) and every doorway or passage between rooms
-is an undirected edge.  The graph is the core data structure consumed by:
+is encoded as one or more directed edges.
+
+Most doors are physically bidirectional and are represented in
+``config.EDGES`` as undirected pairs that ``build_uffizi_graph`` expands
+into two directed edges (a,b) and (b,a). The staircases (Granducal up,
+Lanzi and Buontalenti down) and the Magliabechi exit are physically
+one-way and live in ``config.DIRECTED_EDGES`` instead, where each entry is
+added in the listed direction only.
+
+The graph is the core data structure consumed by:
 
   - The crowd simulator (crowd_simulator.py), which moves NPC visitors
     along edges according to route-following and crowd-avoidance rules.
@@ -49,28 +58,35 @@ class GraphValidation:
     Attributes
     ----------
     connected : bool
-        True if the graph is a single connected component. A disconnected
-        graph would strand visitors in unreachable rooms.
+        True if the directed graph is weakly connected (its undirected
+        projection is one component). A disconnected graph would strand
+        visitors in unreachable rooms.
     corridors_have_high_degree : bool
         True if the three main corridor hubs (A2 Western, A24 Eastern,
-        B1 Contini Bonacossi) have degree >= 80th percentile. These hubs
-        are the backbone of visitor flow; low degree would mean the floor
-        plan was mis-encoded.
+        B1 Contini Bonacossi) have total degree (in + out) >= 80th
+        percentile. These hubs are the backbone of visitor flow; low
+        degree would mean the floor plan was mis-encoded.
     botticelli_forced_chain_ok : bool
         True if rooms A10-A11-A12-A13 form a strict linear chain with no
-        side exits from A11 or A12. This forced chain is the single biggest
-        bottleneck in the real museum, and its topology drives the core
-        congestion dynamics that the RL agent must learn to manage.
+        side exits from A11 or A12. The chain doors are bidirectional, so
+        each of A11 and A12 has exactly two out-neighbors (and the same two
+        in-neighbors). This forced chain is the single biggest bottleneck
+        in the real museum.
     all_rooms_reachable_from_entry : bool
-        True if every node is reachable from ENTRY via BFS. Redundant with
-        ``connected`` for undirected graphs, but kept as an explicit sanity
-        check against accidental directed-edge bugs.
+        True if every node is reachable from ENTRY along directed edges.
+        With the one-way Granducal Staircase, this is the strict check
+        that visitors entering the museum can actually reach every gallery.
+    exit_reachable_from_all_galleries : bool
+        True if every gallery node has a directed path to EXIT. With the
+        one-way Lanzi/Buontalenti/Magliabechi edges, this confirms
+        that no visitor can get stuck.
     """
 
     connected: bool
     corridors_have_high_degree: bool
     botticelli_forced_chain_ok: bool
     all_rooms_reachable_from_entry: bool
+    exit_reachable_from_all_galleries: bool
 
     def as_dict(self) -> Dict[str, bool]:
         """Return all checks as a flat dict, including a summary ``all_pass`` key.
@@ -86,12 +102,14 @@ class GraphValidation:
             "corridors_have_high_degree": self.corridors_have_high_degree,
             "botticelli_forced_chain_ok": self.botticelli_forced_chain_ok,
             "all_rooms_reachable_from_entry": self.all_rooms_reachable_from_entry,
+            "exit_reachable_from_all_galleries": self.exit_reachable_from_all_galleries,
             # Aggregate: one False anywhere fails the whole validation
             "all_pass": all((
                 self.connected,
                 self.corridors_have_high_degree,
                 self.botticelli_forced_chain_ok,
                 self.all_rooms_reachable_from_entry,
+                self.exit_reachable_from_all_galleries,
             )),
         }
 
@@ -101,31 +119,34 @@ class GraphValidation:
 # =============================================================================
 
 
-def build_uffizi_graph() -> nx.Graph:
+def build_uffizi_graph() -> nx.DiGraph:
     """Construct the full Uffizi museum graph with room attributes.
 
     Reads room metadata from ``config.ALL_ROOM_ROWS`` (which concatenates
     second-floor A-block, first-floor B/C/D/E blocks, and special nodes)
-    and edge definitions from ``config.EDGES`` (hand-mapped from the 2023
-    floor plan [MAP]).
+    and edge definitions from ``config.EDGES`` (bidirectional doorways)
+    plus ``config.DIRECTED_EDGES`` (one-way staircases and the exit).
 
     Each node receives the following attributes (from ``config.ROOM_DATA``):
       - name (str): human-readable gallery name
       - section (str): thematic grouping (e.g. "early_renaissance")
       - importance (float): 1-10 cultural significance [assumption]
       - magnetism (float): dwell-time multiplier, 1.0 ~ 3 min base [assumption]
-      - capacity (float): comfortable max occupancy from pixel-area
-        analysis of the floor plan [assumption]
+      - capacity (float): empirical occupancy cap from pixel-area
+        analysis of the official 2023 floor plan [MAP]
 
     Returns
     -------
-    nx.Graph
-        Undirected graph with ~100 nodes and ~130 edges. Called once at
-        environment init; the resulting object is reused for the entire
-        training run.
+    nx.DiGraph
+        Directed graph with ~100 nodes. Each entry in ``config.EDGES`` is
+        expanded into two directed edges (a,b) and (b,a) to represent a
+        bidirectional doorway. Each entry in ``config.DIRECTED_EDGES`` is
+        added only in the listed direction (one-way staircase or exit).
+        Called once at environment init; the resulting object is reused
+        for the entire training run.
     """
 
-    g = nx.Graph()
+    g = nx.DiGraph()
 
     # Iterate ALL_ROOM_ROWS to preserve the canonical ordering defined in
     # config.py (second floor first, then B, C, D, E, special nodes).
@@ -135,9 +156,17 @@ def build_uffizi_graph() -> nx.Graph:
     for room_id, _, _, _, _, _ in config.ALL_ROOM_ROWS:
         g.add_node(room_id, **config.ROOM_DATA[room_id])
 
-    # Edges are undirected: visitors can walk in either direction through
-    # every doorway. The topology is defined in config.EDGES [MAP].
-    g.add_edges_from(config.EDGES)
+    # Bidirectional doors: add both (a,b) and (b,a) so visitors can walk
+    # either way through any ordinary doorway.
+    for a, b in config.EDGES:
+        g.add_edge(a, b)
+        g.add_edge(b, a)
+
+    # One-way edges (staircases, exit): add only in the listed direction.
+    # Visitors cannot reverse these. See config.DIRECTED_EDGES for the
+    # full list with comments.
+    for a, b in config.DIRECTED_EDGES:
+        g.add_edge(a, b)
 
     return g
 
@@ -147,19 +176,25 @@ def build_uffizi_graph() -> nx.Graph:
 # =============================================================================
 
 
-def recommended_next_map(route: List[str] | None = None) -> Dict[str, str]:
-    """Build a lookup from each room on a route to its successor.
+def recommended_next_map(route: List[str] | None = None) -> Dict[str, List[str]]:
+    """Build a lookup from each room to the ordered list of rooms that
+    follow it across every occurrence in the route.
 
-    Used by the crowd simulator to implement route-following behavior:
-    when an NPC must choose among neighbors, it checks this map to see
-    which neighbor is the "guidebook next" room and applies a route-bias
-    weight (TYPE_A_ROUTE_BIAS or TYPE_B_ROUTE_BIAS from config).
+    Used by the crowd simulator to implement route-following behavior: when
+    an NPC arrives at room R, the simulator iterates this list and picks the
+    first entry the visitor has NOT already visited as the route-preferred
+    next neighbor. The matched neighbor receives a route-bias weight bonus
+    in ``_pick_next_room``.
 
-    If a room appears multiple times in the route (e.g. A4 appears twice
-    in the recommended route because the Giotto loop returns to it), only
-    the *last* occurrence's successor is stored. This is intentional:
-    after completing the loop, the visitor should proceed forward, not
-    re-enter the loop. [assumption]
+    Why a list and not a single value: corridor hubs like A24 appear
+    multiple times in a sensible itinerary (once to enter the U-loop, once
+    to enter the Leonardo group, once to leave the museum). A flat
+    ``{room: next_room}`` map can only store one value per key, and
+    last-write-wins produces nonsensical biases (e.g. visitors arriving
+    at A24 from the U-loop get nudged toward the exit instead of toward
+    Leonardo). The list captures all the canonical successors in route
+    order; the simulator's "first-unvisited" selection then routes each
+    visitor to whichever branch they have not yet completed.
 
     Parameters
     ----------
@@ -169,15 +204,19 @@ def recommended_next_map(route: List[str] | None = None) -> Dict[str, str]:
 
     Returns
     -------
-    Dict[str, str]
-        Mapping ``{room_id: next_room_id}`` for all rooms except the last.
+    Dict[str, List[str]]
+        Mapping ``{room_id: [first_next, second_next, ...]}`` where the
+        list contains each distinct successor in order of route appearance.
     """
 
     seq = config.RECOMMENDED_ROUTE if route is None else route
-    nxt: Dict[str, str] = {}
+    nxt: Dict[str, List[str]] = {}
     for i in range(len(seq) - 1):
-        # Later occurrences overwrite earlier ones (last-write-wins)
-        nxt[seq[i]] = seq[i + 1]
+        a, b = seq[i], seq[i + 1]
+        if a not in nxt:
+            nxt[a] = []
+        if b not in nxt[a]:  # dedupe; preserve first-occurrence order
+            nxt[a].append(b)
     return nxt
 
 
@@ -305,17 +344,18 @@ def toy_graph() -> nx.Graph:
 # =============================================================================
 
 
-def validate_uffizi_graph(g: nx.Graph | None = None) -> GraphValidation:
+def validate_uffizi_graph(g: nx.DiGraph | None = None) -> GraphValidation:
     """Validate the key topological invariants of the museum graph.
 
     These checks catch common errors when editing the edge list in config.py:
     accidentally deleting an edge that disconnects a wing, adding a shortcut
-    around the Botticelli chain, or misnaming a corridor hub. Running this
-    after any topology change gives immediate feedback.
+    around the Botticelli chain, misnaming a corridor hub, or breaking the
+    one-way directionality of the staircases. Running this after any
+    topology change gives immediate feedback.
 
     Parameters
     ----------
-    g : nx.Graph or None
+    g : nx.DiGraph or None
         Graph to validate. If None, builds a fresh graph via
         ``build_uffizi_graph()``. Passing an explicit graph allows
         validating modified topologies (e.g. with intervention edges).
@@ -329,47 +369,59 @@ def validate_uffizi_graph(g: nx.Graph | None = None) -> GraphValidation:
 
     g = build_uffizi_graph() if g is None else g
 
-    # --- Check 1: global connectivity ---
-    # The museum is a single building; every room must be reachable from
-    # every other room. A disconnected graph would strand NPC visitors.
-    connected = nx.is_connected(g)
+    # --- Check 1: weak connectivity ---
+    # The museum is a single building. The directed graph must be weakly
+    # connected: ignoring direction, every node must be in one component.
+    # Strong connectivity is too strict (visitors cannot walk UP staircases,
+    # so the EXIT has no path back to ENTRY).
+    connected = nx.is_weakly_connected(g)
 
     # --- Check 2: corridor hub degrees ---
-    # The three main corridor hubs should be among the highest-degree nodes
-    # (>= 80th percentile of all node degrees). This ensures they serve as
-    # the backbone of visitor flow, connecting many galleries.
-    degrees = dict(g.degree())
-    # A2 (Western Corridor), A24 (Eastern Corridor), and B1 (Contini
-    # Bonacossi Corridor) are the true hubs. A23 (Southern Corridor) is
-    # just a passage with degree 2, so it is NOT checked here.
+    # The three main corridor hubs should be among the highest-degree
+    # nodes (>= 80th percentile of total degree = in + out). Almost all
+    # doors on the A and B blocks are bidirectional, so the total degree
+    # of a hub is roughly 2 x its number of adjacent rooms.
+    degrees = dict(g.degree())  # for DiGraph, this is in_degree + out_degree
     corridor_degrees = [degrees.get("A2", 0), degrees.get("A24", 0), degrees.get("B1", 0)]
     all_degrees = np.array(list(degrees.values()), dtype=float)
     degree_threshold = float(np.quantile(all_degrees, 0.80))  # 80th percentile
     corridors_have_high_degree = all(d >= degree_threshold for d in corridor_degrees)
 
     # --- Check 3: Botticelli forced chain ---
-    # The Botticelli rooms (A10-A11-A12-A13) must form a strict linear chain
-    # with no shortcuts. This is the museum's most important bottleneck:
-    # every visitor who wants to see The Spring (A11) or The Birth of Venus
-    # (A12) must traverse the chain sequentially. If A11 or A12 had any
-    # neighbor besides its chain predecessor and successor, visitors could
-    # bypass the queue, and the congestion dynamics that our RL agent must
-    # manage would be unrealistically mild.
+    # The Botticelli rooms must form a strict ONE-WAY chain
+    # A10 -> A11 -> A12 -> A13. Bidirectional edges here would let
+    # visitors ping-pong between Spring and Venus and accumulate
+    # unrealistic dwell time. The forward edges exist; the reverse
+    # edges must NOT exist. A11 has exactly one out-successor (A12)
+    # and exactly one in-predecessor (A10); A12 likewise (A13 out,
+    # A11 in).
     botticelli_forced_chain_ok = (
-        g.has_edge("A10", "A11")                         # chain entry
-        and g.has_edge("A11", "A12")                     # Spring to Venus
-        and g.has_edge("A12", "A13")                     # chain exit
-        and set(g.neighbors("A11")) == {"A10", "A12"}    # exactly degree 2
-        and set(g.neighbors("A12")) == {"A11", "A13"}    # exactly degree 2
+        g.has_edge("A10", "A11") and not g.has_edge("A11", "A10")
+        and g.has_edge("A11", "A12") and not g.has_edge("A12", "A11")
+        and g.has_edge("A12", "A13") and not g.has_edge("A13", "A12")
+        and set(g.successors("A11")) == {"A12"}
+        and set(g.predecessors("A11")) == {"A10"}
+        and set(g.successors("A12")) == {"A13"}
+        and set(g.predecessors("A12")) == {"A11"}
     )
 
-    # --- Check 4: reachability from ENTRY ---
-    # In a connected undirected graph, all nodes are trivially reachable
-    # from any node. We verify reachability from ENTRY explicitly as a
-    # guard against accidentally introducing directed edges or other bugs
-    # that break the undirected assumption.
+    # --- Check 4: every gallery reachable from ENTRY along directed paths ---
+    # With the Granducal Staircase as the only one-way "up", we need to
+    # verify that the entire museum is reachable via legal walks. If any
+    # gallery is unreachable, visitors that pass that way will get stuck
+    # or never visit it.
     all_rooms_reachable_from_entry = (
         len(nx.single_source_shortest_path(g, "ENTRY")) == g.number_of_nodes()
+    )
+
+    # --- Check 5: every gallery has a directed path to EXIT ---
+    # Visitors must be able to leave the museum no matter where they end up.
+    # On the reverse graph, this is equivalent to "every node reachable
+    # from EXIT". A failure here usually means a one-way edge was added
+    # backward, or an exit edge was missing.
+    g_rev = g.reverse(copy=False)
+    exit_reachable_from_all_galleries = (
+        len(nx.single_source_shortest_path(g_rev, "EXIT")) == g.number_of_nodes()
     )
 
     return GraphValidation(
@@ -377,4 +429,5 @@ def validate_uffizi_graph(g: nx.Graph | None = None) -> GraphValidation:
         corridors_have_high_degree=corridors_have_high_degree,
         botticelli_forced_chain_ok=botticelli_forced_chain_ok,
         all_rooms_reachable_from_entry=all_rooms_reachable_from_entry,
+        exit_reachable_from_all_galleries=exit_reachable_from_all_galleries,
     )

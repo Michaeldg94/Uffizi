@@ -202,6 +202,8 @@ class UffiziEnv(EnvBase):  # type: ignore[misc]
         episode_minutes: int = config.MUSEUM_OPEN_MINUTES,
         potential_shaping: bool = True,
         shaping_gamma: float = 0.99,
+        random_start: bool = False,
+        interventions=None,
     ) -> None:
         super().__init__()
 
@@ -221,20 +223,95 @@ class UffiziEnv(EnvBase):  # type: ignore[misc]
 
         # --- Configuration flags ---
         self.with_visibility_mask = bool(with_visibility_mask)
+        # Exploring starts: when True, TRAINING episodes begin from a random
+        # gallery room (not A1), so the agent gathers experience across the
+        # whole museum and learns the reactive dwell-then-move rule everywhere,
+        # rather than overfitting to the rooms near the entrance and getting
+        # trapped in a lazy local optimum. Evaluation keeps random_start=False
+        # (honest A1 start). This is a standard exploration technique, not
+        # demonstration/warm-start: the policy is still learned end-to-end.
+        self.random_start = bool(random_start)
         self.invalid_action_penalty = float(invalid_action_penalty)
         self.episode_minutes = int(episode_minutes)
+        # Intervention bundle the agent lives inside (None = baseline). Passed to
+        # the NPC crowd simulator so the agent experiences the intervened crowd;
+        # extended hours lengthen the agent's own day too.
+        self.interventions = interventions
+        if interventions is not None and getattr(interventions, "extended_hours", False):
+            self.episode_minutes = max(self.episode_minutes, 720)  # 7:00-19:00
+        # RAMA booking gate. When RAMA is active the three floor-2 masterpieces
+        # are reservation-only: the agent may appreciate one only after checking
+        # in during the 10-min entry window it booked (set by the booking
+        # wrapper via set_secured_windows). A group with no booking, or first
+        # reached after its window has closed, yields nothing.
+        self._rama_active = bool(
+            interventions is not None and getattr(interventions, "rama", False))
+        self._secured_windows: Dict[str, tuple[int, int]] = {}  # group -> (start,end) min-from-open
+        self._rama_checkin: Dict[str, bool] = {}                # group -> entered within window
+        # Sub-goal reward for keeping a booked appointment (checking in during
+        # the window). Bridges the long gap between the pre-visit booking and
+        # the masterpiece payoff; set by the booking wrapper (0 = off).
+        self.rama_checkin_bonus = 0.0
+        # Per-minute penalty for idling inside a booked masterpiece before its
+        # window opens (parking). The opportunity cost of a room the agent could
+        # be seeing instead; kills the "book one late slot and wait all day"
+        # degenerate optimum. Set by the booking wrapper (0 = off).
+        self.rama_wait_penalty = 0.0
         self.potential_shaping = bool(potential_shaping)
         self.shaping_gamma = float(shaping_gamma)
 
-        # The controlled agent is always Type A (crowd-sensitive, heterogeneous).
-        # This is the visitor whose experience we are trying to optimize.
-        self.agent_profile: VisitorProfile = sample_type_a_profile(self.rng)
+        # --- Importance-scaled dwell + slack-based egress (knobs) ---
+        # dwell_per_importance: an art lover lingers in proportion to value.
+        #   Marginal appreciation in a room declines linearly to zero over
+        #   desired_dwell = dwell_per_importance * personal_importance minutes,
+        #   so an importance-10 masterpiece earns ~30 min of appreciation and a
+        #   minor room only a few. Accumulated across visits, so backtracking
+        #   into a satiated room pays ~0.
+        # step_cost: small per-minute cost. Small enough never to cut short a
+        #   legitimate 30-min masterpiece dwell (art ~10/min dominates), large
+        #   enough that once a room is satiated every extra minute is a net loss
+        #   -> the agent moves on, and eventually leaves.
+        # exit_bonus: positive reward for a voluntary exit (the goal to reach).
+        # closing_pressure / egress_buffer: slack-based egress. Zero while the
+        #   agent can still reach an exit comfortably (hops + buffer <= minutes
+        #   left); escalates per minute of shortfall once behind schedule.
+        # noexit_penalty: terminal penalty if still inside at closing (strong,
+        #   not a full wipe, which gave no learning gradient).
+        self.dwell_per_importance = 3.0      # ideal (uncrowded) appreciation minutes per importance point (imp 10 -> ~30 min)
+        self.dwell_importance_floor = 0.0    # no floor: every room's value scales with its encoded importance (minor room = less, not zero)
+        self.satiation_shoulder = 5.0        # plateau: full value over the whole dwell, ramping to zero only in the last this-many minutes
+        self.dwell_crowd_beta = 1.0          # crowd-driven dwell: progress/min slows with local density (fight-to-the-front), so a packed room takes longer to get through. 0 = fixed dwell.
+        self.art_crowd_alpha = 0.5           # GENTLE crowd penalty for art value (profile crowd_alpha=6 is too harsh): crowd diminishes value but mildly, so a crowded masterpiece still far outweighs any random room
+        self.step_cost = 0.15
+        self.exit_bonus = 50.0
+        self.closing_pressure = 4.0
+        self.egress_buffer = 5
+        self.noexit_penalty = -50.0
+        self.completion_k = 15.0             # completion bonus for finishing a must-see's full dwell: makes "stay ~30 min, then move on" the dominant strategy and advances the tour to the next masterpiece
+        self.boredom_k = 0.0                 # OFF: penalizing stay-in-satiated backfired -- the agent learned to never stay and LOOP instead (revisit rooms to evade it), the opposite of dwelling. The strong tour pull below is the "leave" signal instead.
+        # Tour-shaping potential: a must-see room is one whose PERSONAL importance
+        # is >= tour_threshold. The potential pulls the agent toward the nearest
+        # must-see it has not yet fully appreciated, so greedy walks a complete
+        # masterpiece tour instead of ping-ponging among the local minor rooms.
+        # Policy-invariant (Ng et al. 1999): guides learning, not the optimum.
+        self.tour_weight = 1.0               # moderate pull toward the nearest uncompleted must-see (w=4 destabilized into ping-pong). Tested here with boredom OFF + exploring starts (the one untested combination).
+        self.tour_threshold = 7.0
+        self._tour_targets: list[str] = []       # must-see room ids, set per-episode in reset()
+        self._extracted: dict[str, float] = {}   # crowd-weighted appreciation progress per room
+        self._completed: set = set()             # rooms already fully appreciated (one-time completion bonus)
+
+        # Which visitor profile the controlled agent samples each episode.
+        # Default Type A (art lover); subclasses (e.g. the normal tourist) swap
+        # in a different sampler via this hook without touching reset().
+        self._profile_sampler = sample_type_a_profile
+        self.agent_profile: VisitorProfile = self._profile_sampler(self.rng)
 
         # NPC crowd simulator runs in lockstep with the environment.
         self.sim = CrowdSimulator(
             daily_total=daily_total,
             seed=seed,
             type_a_fraction=type_a_fraction,
+            interventions=interventions,
         )
 
         # Rolling window of density snapshots for computing density trends.
@@ -249,11 +326,16 @@ class UffiziEnv(EnvBase):  # type: ignore[misc]
         self.action_space = spaces.Discrete(1 + self.max_degree)
 
         # --- Observation space ---
-        # Without visibility mask: 4 * N_ROOMS + 2 = 4 * 98 + 2 = 394
-        #   (one-hot + density + trend + time + visited + fatigue)
-        # With visibility mask: 5 * N_ROOMS + 2 = 5 * 98 + 2 = 492
-        #   (adds a binary visibility mask vector)
-        obs_dim = 4 * config.N_ROOMS + 2
+        # Without visibility mask: 5 * N_ROOMS + 3
+        #   (one-hot + density + trend + visited + appreciation-progress
+        #    + time + egress-slack + fatigue)
+        # With visibility mask: 6 * N_ROOMS + 3 (adds the visibility mask vector)
+        # The appreciation-progress vector is essential: the art reward's value
+        # per minute decays with how long the agent has already dwelled in a
+        # room, so the policy must observe that progress to know when to stop
+        # dwelling and move on. The binary visited flag is not enough (it flips
+        # after the first minute), which made "dwell, then move on" unlearnable.
+        obs_dim = 5 * config.N_ROOMS + 3  # +1 for the egress-slack feature
         if self.with_visibility_mask:
             obs_dim += config.N_ROOMS  # extra N_ROOMS dims for visibility mask
 
@@ -360,6 +442,27 @@ class UffiziEnv(EnvBase):  # type: ignore[misc]
             return neighbors[idx]  # valid neighbor
         return self.current_room  # fallback: invalid action treated as "stay"
 
+    def _eject_action(self) -> int:
+        """Action index that moves one hop toward the nearest exit.
+
+        Used by the closing-time ejection: the guards override the agent's
+        choice and walk it to the exit. Picks the neighbor with the smallest
+        hop-distance to EXIT, so the distance strictly decreases each step and
+        the visitor reaches a door in exactly ``_distance_to_exit`` steps.
+        """
+
+        if self.current_room == "EXIT":
+            return 0
+        neighbors = self._sorted_neighbors(self.current_room)
+        if not neighbors:
+            return 0
+        best_i, best_d = 0, None
+        for i, nb in enumerate(neighbors):
+            d = self._distance_to_exit(nb)
+            if best_d is None or d < best_d:
+                best_d, best_i = d, i
+        return best_i + 1  # action 0 = stay; neighbors map to 1..max_degree
+
     # =========================================================================
     # Density and observation construction
     # =========================================================================
@@ -445,16 +548,40 @@ class UffiziEnv(EnvBase):  # type: ignore[misc]
             visible = set(self.g.nodes)  # kiosk provides full museum information
         return visible
 
+    def _appreciation_progress(self) -> np.ndarray:
+        """Per-room appreciation progress in [0, 1].
+
+        progress = extracted / ideal_dwell, clipped to 1. 0 = fresh (full art
+        value per minute still available), 1 = fully appreciated (staying pays
+        nothing). This is the exact variable the art reward's novelty term
+        depends on, so the policy must be able to observe it to decide when to
+        stop dwelling in the current room and head for the next masterpiece.
+        The binary visited flag cannot carry this (it flips after one minute).
+        """
+        iv = self.agent_profile.importance_vector
+        ideal = np.maximum(
+            1.0,
+            self.dwell_per_importance * np.maximum(0.0, iv - self.dwell_importance_floor),
+        )
+        progress = np.zeros(config.N_ROOMS, dtype=float)
+        for room, extracted in self._extracted.items():
+            idx = config.ROOM_TO_IDX.get(room)
+            if idx is not None:
+                progress[idx] = min(1.0, extracted / ideal[idx])
+        return progress
+
     def _build_observation(self) -> np.ndarray:
         """Assemble the observation vector for the current state.
 
-        Layout WITHOUT visibility masking (394 dimensions, N_ROOMS = 98):
-          dims [0:98]      one-hot current room       (which room am I in?)
-          dims [98:196]    density per room [0, 1]     (how crowded is each room?)
-          dims [196:294]   density trend [-1, 1]       (filling or emptying?)
-          dims [294]       normalized time [0, 1]      (how much time is left?)
-          dims [295:393]   visited flags {0, 1}        (which rooms have I seen?)
-          dims [393]       fatigue [0, 1]              (how tired am I?)
+        Layout WITHOUT visibility masking (5 * N_ROOMS + 3 dims):
+          one-hot current room       (which room am I in?)
+          density per room [0, 1]     (how crowded is each room?)
+          density trend [-1, 1]       (filling or emptying?)
+          normalized time [0, 1]      (how much time is left?)
+          egress slack [-1, 1]        (can I still afford to sightsee?)
+          visited flags {0, 1}        (which rooms have I seen?)
+          appreciation progress [0,1] (how much of each room's dwell I have used)
+          fatigue [0, 1]              (how tired am I?)
 
         Layout WITH visibility masking (492 dimensions):
           dims [0:98]      one-hot current room
@@ -487,11 +614,23 @@ class UffiziEnv(EnvBase):  # type: ignore[misc]
         # --- Scalar features ---
         time_norm = np.array([self.time_elapsed / max(1, self.episode_minutes)], dtype=float)
         fatigue = np.array([self.fatigue], dtype=float)
+        # Egress slack: minutes left minus hops to the nearest exit, normalized.
+        # Positive = the visitor can still afford to sightsee; <= 0 = must
+        # already be heading out (closing-time ejection is imminent). This is
+        # the feature that lets the policy plan its exit around closing.
+        t_remaining = self.episode_minutes - self.time_elapsed
+        egress_slack = np.array([np.clip(
+            (t_remaining - self._distance_to_exit(self.current_room)) / max(1, self.episode_minutes),
+            -1.0, 1.0)], dtype=float)
+
+        # Per-room appreciation progress: lets the policy tell a fresh room
+        # from one it has already drained, so it can dwell then move on.
+        progress = self._appreciation_progress()
 
         if not self.with_visibility_mask:
             # Full observability: agent sees all room densities, clipped to [0, 1]
             dens_clipped = np.clip(dens_all, 0.0, 1.0)
-            obs = np.concatenate([one_hot, dens_clipped, trend_all, time_norm, visited_bin, fatigue])
+            obs = np.concatenate([one_hot, dens_clipped, trend_all, time_norm, egress_slack, visited_bin, progress, fatigue])
             return obs.astype(np.float32)
 
         # --- Partial observability mode ---
@@ -510,14 +649,14 @@ class UffiziEnv(EnvBase):  # type: ignore[misc]
             trend_obs[idx] = trend_all[idx]                     # reveal trend
             vis_mask[idx] = 1.0                                 # mark as visible
 
-        obs = np.concatenate([one_hot, dens_obs, vis_mask, trend_obs, time_norm, visited_bin, fatigue])
+        obs = np.concatenate([one_hot, dens_obs, vis_mask, trend_obs, time_norm, egress_slack, visited_bin, progress, fatigue])
         return obs.astype(np.float32)
 
     # =========================================================================
     # Reward computation
     # =========================================================================
 
-    def compute_reward(self, room_id: str, visited_before: bool) -> Tuple[float, EnvStepInfo]:
+    def compute_reward(self, room_id: str, visited_before: bool, is_stay: bool = False) -> Tuple[float, EnvStepInfo]:
         """Compute the task reward for occupying ``room_id`` this minute.
 
         The reward has three additive components:
@@ -565,40 +704,133 @@ class UffiziEnv(EnvBase):  # type: ignore[misc]
             shaping term (added later in step()).
         """
 
-        importance = self.g.nodes[room_id]["importance"]
         capacity = self.g.nodes[room_id]["capacity"]
 
         # Occupancy includes NPC visitors + the controlled agent if present
         occ = self.sim.occ[room_id] + (1 if room_id == self.current_room else 0)
         dens = occ / max(1.0, capacity)
 
-        # crowd_factor: diminishing returns from crowding. With alpha=6 (Type A),
-        # a room at 50% density yields crowd_factor = 1/(1+3) = 0.25.
-        crowd_factor = 1.0 / (1.0 + self.agent_profile.crowd_alpha * dens)
-        # novelty: first visit = full reward, revisit = 20% reward
-        novelty = 1.0 if not visited_before else 0.2
+        # crowd_factor: the crowd diminishes a room's value, but GENTLY
+        # (art_crowd_alpha ~0.5, far below the profile's crowd_alpha=6). So a
+        # crowded masterpiece keeps most of its value (at density 1.5,
+        # crowd_factor ~0.47, not ~0.07), and a packed Botticelli still far
+        # outweighs any random uncrowded room. Crowd genuinely reduces value
+        # (no fake fixed value) and an off-peak visit is worth more, but it is
+        # never so punishing that the agent would rather see a side gallery.
+        crowd_factor = 1.0 / (1.0 + self.art_crowd_alpha * dens * dens)
 
-        r_art = float(importance * crowd_factor * novelty)
-        r_time = -0.01  # constant time pressure
+        # Personal importance: the agent's preference vector, not the room's
+        # generic cultural importance -- what THIS visitor actually cares about
+        # (concentrated on the masterpieces for a Type A art lover).
+        if room_id in config.ROOM_TO_IDX:
+            idx = config.ROOM_TO_IDX[room_id]
+            importance = float(self.agent_profile.importance_vector[idx])
+        else:
+            importance = 0.0
 
-        # --- Congestion penalty with corridor exemption ---
-        # Extra penalty for severely overcrowded gallery rooms (>80% capacity).
-        # Corridors, staircases, and passage rooms are exempt: their high
-        # density is a topological artifact, not a choice the agent can avoid.
-        # Without this exemption, the agent would learn to avoid corridors
-        # (which is impossible since they are the only way to traverse the
-        # museum), degrading the quality of the learned policy.
+        # RAMA gate. A booked masterpiece pays nothing until the agent has
+        # checked in during its 10-min entry window; before the window it is
+        # merely waiting (no value yet, no dwell consumed), and arriving after
+        # the window has closed without a prior check-in forfeits the slot for
+        # good. Unbooked/declined masterpieces are inaccessible. Once checked
+        # in, appreciation proceeds normally (the full ~30-min calm visit).
+        rama_gated = False
+        rama_just_checkin = False
+        rama_waiting = False
+        if self._rama_active and room_id in config.MASTERPIECE_ROOMS:
+            key = self._rama_group(room_id)
+            win = self._secured_windows.get(key)
+            if win is None:
+                rama_gated = True
+            else:
+                w_start, w_end = win
+                if (not self._rama_checkin.get(key, False)
+                        and w_start <= self.time_elapsed <= w_end):
+                    self._rama_checkin[key] = True
+                    rama_just_checkin = True
+                rama_gated = not self._rama_checkin.get(key, False)
+                rama_waiting = rama_gated and self.time_elapsed < w_start  # parked, window not yet open
+
+        # Importance-scaled dwell, FIXED length. The agent appreciates a room
+        # for up to ideal_dwell minutes (scaled by importance, ~30 for a
+        # masterpiece), value declining to zero over that span. The dwell
+        # length is fixed; crowd does NOT stretch it. Instead the gentle
+        # crowd_factor above reduces the value PER MINUTE. So a masterpiece's
+        # total value does fall with crowd (no fake fixed value), but only
+        # mildly, and stays far above any random room. The art lover, dwelling
+        # the full span, loses more total value to the crowd than a quick
+        # glance would: penalized, but still goes and still gets a big payoff.
+        # Every room's dwell scales with its encoded importance (a minor room
+        # earns a short dwell and small value, not zero), so the whole museum
+        # has value, with the masterpieces dominating.
+        ideal_dwell = max(1.0, self.dwell_per_importance * max(0.0, importance - self.dwell_importance_floor))
+        extracted = self._extracted.get(room_id, 0.0)
+        # Plateau satiation: the room pays its full per-minute value for the
+        # whole ideal-dwell window, winding down only over the final
+        # satiation_shoulder minutes, then zero. A glance captures only a small
+        # fraction of the room's worth, so "stay until satiated, then move on"
+        # beats drifting away early. A triangular decay (the previous shape)
+        # made late minutes nearly worthless, so the agent grabbed the cheap
+        # first minutes and left: the masterpiece under-dwell we kept seeing.
+        novelty = max(0.0, min(1.0, (ideal_dwell - extracted) / self.satiation_shoulder))
+        # Crowd-driven dwell: you make less appreciation progress per minute the
+        # more crowded the room (fighting to the front), so a packed room takes
+        # more minutes to get through. With a fixed closing time this means high
+        # crowd -> longer dwells -> fewer rooms fit -> fewer total points.
+        if rama_gated:
+            # Waiting for the window or slot forfeit: no value, no progress, so
+            # the dwell budget is preserved for when the window actually opens.
+            r_art = 0.0
+        else:
+            self._extracted[room_id] = extracted + 1.0 / (1.0 + self.dwell_crowd_beta * dens)
+            r_art = float(importance * crowd_factor * novelty)
+        r_time = -self.step_cost  # per-minute cost; lingering after satiation is a net loss
+
+        # One-time completion bonus for FULLY appreciating a must-see room.
+        # This is the discrete, learnable target that makes the agent dwell a
+        # masterpiece to the end (~30 min) instead of glancing, and -- because
+        # the tour potential advances only when a must-see is completed -- it is
+        # what unsticks the tour so the agent moves on to the next masterpiece.
+        # Restricted to must-sees (importance >= tour_threshold) so the agent
+        # does not grind out trivial rooms for the bonus. Crowd-independent: the
+        # satisfaction of having properly seen a great work does not depend on
+        # how crowded it was, so the agent completes the crowded Leonardo and
+        # Michelangelo too rather than substituting calm-room time.
+        r_completion = 0.0
+        if (not rama_gated and ideal_dwell > 1.0 and room_id not in self._completed
+                and self._extracted.get(room_id, 0.0) >= ideal_dwell):
+            self._completed.add(room_id)
+            if importance >= self.tour_threshold:
+                r_completion = float(self.completion_k * importance)
+
+        # Crowd is modeled via the stretched dwell above, not a separate
+        # congestion penalty (which double-counted aversion and made the agent
+        # skip crowded masterpieces instead of braving them).
         r_congestion = 0.0
-        is_gallery = room_id not in {
-            "A1", "A2", "A23", "A24",           # 2nd floor corridors
-            "B1", "D5", "D9", "D27",            # 1st floor corridors/passages
-            "ENTRY", "EXIT",                      # entry/exit gates
-            "PANORAMIC_TERRACE", "LANZI_STAIRCASE", "BUONTALENTI_STAIRCASE",
-        }
-        if is_gallery and dens > 0.8:
-            r_congestion = float(-0.5 * dens)  # proportional to overcrowding severity
 
-        reward = r_art + r_time + r_congestion
+        # Slack-based egress pressure: zero while the agent can still reach an
+        # exit comfortably (hops + buffer <= minutes left), then escalating in
+        # proportion to the shortfall once it is behind schedule. This forces
+        # it to turn toward a door in time without nagging during normal
+        # touring (so returns are not crushed). It is the learnable egress
+        # signal, and the shortfall grows the deeper and later it is.
+        time_remaining = self.episode_minutes - self.time_elapsed
+        deficit = self._distance_to_exit(room_id) + self.egress_buffer - time_remaining
+        r_closing = float(-self.closing_pressure * max(0.0, deficit))
+
+        # Boredom: choosing to STAY in a room already fully appreciated is a net
+        # loss. With the completion bonus pulling the agent to stay until
+        # satiated and boredom pushing it to leave once satiated, the optimal
+        # dwell is a sharp ~ideal_dwell, and the degenerate "camp one room
+        # forever" policy is killed. Only the stay action triggers it, so
+        # walking THROUGH a satiated room (necessary transit) is never penalized.
+        r_boredom = 0.0
+        if is_stay and extracted >= ideal_dwell:
+            r_boredom = -self.boredom_k
+
+        r_checkin = self.rama_checkin_bonus if rama_just_checkin else 0.0
+        r_wait = -self.rama_wait_penalty if (rama_waiting and is_stay) else 0.0
+        reward = r_art + r_time + r_congestion + r_closing + r_completion + r_boredom + r_checkin + r_wait
         info = EnvStepInfo(
             reward_art=r_art,
             reward_time=r_time,
@@ -607,6 +839,56 @@ class UffiziEnv(EnvBase):  # type: ignore[misc]
             density_current=float(dens),
         )
         return reward, info
+
+    # =========================================================================
+    # RAMA booking gate (reservation-anchored masterpiece access)
+    # =========================================================================
+
+    @staticmethod
+    def _rama_group(room_id: str) -> str | None:
+        """Map a masterpiece room to its booking group. A11 and A12 share the
+        single Botticelli ledger (one forced traversal); A35 is Leonardo, A38
+        is Raphael."""
+        if room_id in ("A11", "A12"):
+            return "bott"
+        if room_id == "A35":
+            return "leo"
+        if room_id == "A38":
+            return "raph"
+        return None
+
+    def set_secured_windows(self, windows: Dict[str, tuple[int, int]]) -> None:
+        """Install the agent's booked masterpiece entry windows, mapping booking
+        group ('bott'/'leo'/'raph') to (entry_start, entry_end) in minutes from
+        museum open. Called by the booking wrapper after the pre-visit booking
+        phase; a missing group means that masterpiece was declined or sold out."""
+        self._secured_windows = dict(windows)
+        self._rama_checkin = {}
+
+    def rama_access_features(self) -> tuple[float, float, float, float]:
+        """Perception of the room the agent is standing in, as a reservation
+        problem. Lets the policy connect 'I get nothing here' to 'I have no (or
+        not-yet-open) reservation for this room'. Returns:
+          is_masterpiece : 1 if the current room is a RAMA-gated masterpiece
+          unbooked       : 1 if it is a masterpiece with no reservation (no access)
+          access_now     : 1 if I may appreciate it right now (checked in, or my
+                           window is open) -- i.e. standing here pays off now
+          time_to_open   : normalized minutes until my window opens (>0 = wait,
+                           <=0 = open or past); 0 when not applicable
+        All zero when the current room is not a gated masterpiece."""
+        cur = self.current_room
+        if not (self._rama_active and cur in config.MASTERPIECE_ROOMS):
+            return (0.0, 0.0, 0.0, 0.0)
+        key = self._rama_group(cur)
+        win = self._secured_windows.get(key)
+        if win is None:
+            return (1.0, 1.0, 0.0, 0.0)  # masterpiece I never reserved: no access
+        w_start, w_end = win
+        em = max(1, self.episode_minutes)
+        checked = self._rama_checkin.get(key, False)
+        access_now = 1.0 if (checked or w_start <= self.time_elapsed <= w_end) else 0.0
+        ttl = float(np.clip((w_start - self.time_elapsed) / em, -1.0, 1.0))
+        return (1.0, 0.0, access_now, ttl)
 
     # =========================================================================
     # Potential-based reward shaping
@@ -650,11 +932,16 @@ class UffiziEnv(EnvBase):  # type: ignore[misc]
            rooms increases the potential, producing a positive shaping
            reward when the agent enters a new gallery.
 
-        2. Current room value (weight 0.25):
-           importance / (1 + alpha * density) for the current room.
-           This rewards being in a high-importance, low-density room.
-           It provides an immediate signal that complements the longer-
-           horizon visited-importance component.
+        2. Tour pull (weight tour_weight):
+           negative hop distance to the nearest must-see room not yet fully
+           appreciated. Moving toward the next uncompleted masterpiece raises
+           the potential (positive shaping reward), giving the agent a clear
+           gradient to walk the corridor to it rather than ping-ponging among
+           the local minor rooms. Zero once every must-see is completed, so
+           the exit term then leads the agent to a door. This replaces an
+           earlier current-room-value term that used the profile's steep
+           crowd_alpha (6) and so penalized being in a crowded masterpiece,
+           steering the agent away from exactly the rooms it should brave.
 
         3. Exit urgency penalty (weight 0.05):
            (time_elapsed / episode_length) * distance_to_exit.
@@ -676,19 +963,35 @@ class UffiziEnv(EnvBase):  # type: ignore[misc]
             for room in self.visited
             if room not in {"ENTRY", "EXIT", "LANZI_STAIRCASE", "BUONTALENTI_STAIRCASE", "PANORAMIC_TERRACE"}
         ]
-        visited_importance = sum(self.g.nodes[room]["importance"] for room in visited_gallery_rooms)
-        # Current room's crowd-adjusted value (same formula as r_art but without novelty)
-        density_here = self._density_all_rooms()[config.ROOM_TO_IDX[self.current_room]]
-        current_room_value = self.g.nodes[self.current_room]["importance"] / (
-            1.0 + self.agent_profile.crowd_alpha * density_here
+        # Visited importance uses the agent's PERSONAL importance vector
+        # for consistency with the reward (the metric the agent should
+        # optimize is its own preference satisfaction, not a generic
+        # room-cultural-importance score).
+        visited_importance = sum(
+            float(self.agent_profile.importance_vector[config.ROOM_TO_IDX[room]])
+            for room in visited_gallery_rooms
+            if room in config.ROOM_TO_IDX
         )
+        # Tour pull: hop distance to the nearest must-see room not yet fully
+        # appreciated. Moving toward it raises the potential; once every
+        # must-see is completed this is zero and the exit term leads.
+        remaining = [t for t in self._tour_targets if t not in self._completed]
+        if remaining:
+            dist_here = self._distances.get(self.current_room, {})
+            tour_distance = float(min(dist_here.get(t, 999) for t in remaining))
+        else:
+            tour_distance = 0.0
         # Exit urgency: grows from 0 to 1 over the episode, penalizing
         # distance from EXIT more heavily as time runs out
         exit_urgency = self.time_elapsed / max(1, self.episode_minutes)
         exit_penalty = exit_urgency * self._distance_to_exit(self.current_room)
-        # Weighted combination. Coefficients chosen to keep shaping reward
-        # magnitude comparable to but smaller than the task reward. [assumption]
-        return float(0.03 * visited_importance + 0.25 * current_room_value - 0.05 * exit_penalty)
+        # Weighted combination (policy-invariant potential shaping). Coefficients
+        # keep the shaping magnitude comparable to, but below, the task reward.
+        return float(
+            0.03 * visited_importance
+            - self.tour_weight * tour_distance
+            - 0.05 * exit_penalty
+        )
 
     # =========================================================================
     # Episode lifecycle
@@ -724,11 +1027,44 @@ class UffiziEnv(EnvBase):  # type: ignore[misc]
         self.rng = config.get_rng(episode_seed)
 
         # Reset mutable episode state
-        self.current_room = "A1"         # start in the Lorenese Vestibule
+        if self.random_start:
+            # Exploring starts (training only): wake up in a random gallery room
+            # so the agent learns to act well everywhere, not just near A1.
+            non_gallery = {"ENTRY", "EXIT", "LANZI_STAIRCASE", "BUONTALENTI_STAIRCASE", "PANORAMIC_TERRACE"}
+            gallery = [r for r in config.ROOM_TO_IDX if r not in non_gallery]
+            self.current_room = str(self.rng.choice(gallery))
+        else:
+            self.current_room = "A1"         # start in the Lorenese Vestibule (honest eval start)
         self.time_elapsed = 0
         self.fatigue = 0.0
         self.visited = {self.current_room}
-        self.agent_profile = sample_type_a_profile(self.rng)  # fresh Type A profile
+        self.agent_profile = self._profile_sampler(self.rng)  # fresh visitor profile
+        # Secondary-attractor enrichment: the agent perceives the same per-room
+        # importance lift the curatorial table applies to the NPC crowd, so the
+        # enriched secondary stars become genuinely worth its time (and may cross
+        # the tour threshold below, drawing the visit outward from the 3-4
+        # masterpieces). Identical delta + 10.0 cap as crowd_simulator init.
+        if self.interventions is not None and getattr(
+                self.interventions, "secondary_attractor_enrichment", False):
+            iv = self.agent_profile.importance_vector
+            for rid, channels in config.ROOM_CURATION.items():
+                idx = config.ROOM_TO_IDX.get(rid)
+                if idx is None:
+                    continue
+                imp_delta = sum(
+                    config.CHANNEL_EFFECTS.get(c, {}).get("importance", 0.0)
+                    for c in channels)
+                iv[idx] = min(10.0, float(iv[idx]) + imp_delta)
+        self._extracted = {}         # reset crowd-weighted appreciation progress
+        self._completed = set()      # reset completed-room set
+        self._secured_windows = {}   # RAMA bookings, installed by the wrapper post-reset
+        self._rama_checkin = {}      # RAMA per-group check-in flags
+        # Must-see targets for the tour-shaping potential: the rooms this
+        # visitor most cares about (personal importance >= tour_threshold).
+        self._tour_targets = [
+            r for r, i in config.ROOM_TO_IDX.items()
+            if float(self.agent_profile.importance_vector[i]) >= self.tour_threshold
+        ]
 
         # Rebuild the NPC crowd simulator with the episode-specific seed.
         # This ensures that the NPC arrival pattern differs across episodes
@@ -739,6 +1075,7 @@ class UffiziEnv(EnvBase):  # type: ignore[misc]
             type_a_fraction=self.sim.type_a_fraction,
             heterogeneity_scale=self.sim.heterogeneity_scale,
             trail_acceptance_prob=self.sim.trail_acceptance_prob,
+            interventions=self.interventions,
         )
         self.sim.step_arrivals()  # process minute-0 arrivals
 
@@ -808,21 +1145,15 @@ class UffiziEnv(EnvBase):  # type: ignore[misc]
         self._density_window.append(dens.copy())
 
         # --- Step 5: compute task reward ---
-        reward, reward_info = self.compute_reward(target_room, visited_before)
+        reward, reward_info = self.compute_reward(target_room, visited_before, is_stay=(action == 0))
 
         # --- Step 6: advance time and fatigue ---
         self.time_elapsed += 1
         self.fatigue = min(1.0, self.fatigue + 1.0 / max(1, self.episode_minutes))
 
         # --- Step 7: termination and truncation ---
-        terminated = target_room in {"EXIT"}   # agent chose to exit
-        truncated = self.time_elapsed >= self.episode_minutes  # time ran out
-
-        # Terminal bonus: +0.1 per unique room visited. Encourages breadth
-        # of exploration. Only awarded when the agent reaches EXIT (not on
-        # truncation), incentivizing the agent to complete its visit.
-        if terminated:
-            reward += 0.1 * len(self.visited)
+        terminated = target_room in {"EXIT"}   # agent voluntarily reached an exit
+        truncated = (self.time_elapsed >= self.episode_minutes) and not terminated  # closing time
 
         # --- Step 8: potential-based reward shaping ---
         # F(s, s') = gamma * Phi(s') - Phi(s). Provably policy-invariant
@@ -834,9 +1165,20 @@ class UffiziEnv(EnvBase):  # type: ignore[misc]
             shaping_reward = self.shaping_gamma * self._potential() - prev_potential
             reward += shaping_reward
 
-        # Apply invalid action penalty last (not part of the task reward)
+        # Apply invalid action penalty (not part of the task reward).
         reward += penalty_invalid
         reward_info.reward_shaping = shaping_reward
+
+        # Voluntary exit is the goal: a clear positive bonus for reaching a door.
+        if terminated:
+            reward += self.exit_bonus
+
+        # Failing to leave before closing is strictly bad: a strong terminal
+        # penalty (not a full wipe -- a wipe destroys the learning signal). The
+        # dense closing pressure in compute_reward is what actually teaches the
+        # agent to avoid ending up here.
+        if truncated:
+            reward += self.noexit_penalty
 
         # --- Build info dict for logging ---
         info = {

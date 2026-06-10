@@ -145,11 +145,17 @@ class TestSampleVisitDuration:
         assert np.mean(early) > np.mean(late)
 
     def test_mean_close_to_target(self):
-        targets = [(3, 120), (12, 100), (25, 80), (34, 65)]
-        for slot, expected in targets:
+        # Means updated to match the Uffizi's official itinerary tiers:
+        # Fast 90-120 min, Classic 120+, Complete 180+. Early-slot
+        # visitors are calibrated as Classic; late-slot as Fast.
+        # The 90-min floor on the log-normal sampler slightly inflates
+        # the late-slot mean (the lower tail is clipped), so the
+        # tolerance is 10% rather than 5% for the late slot.
+        targets = [(3, 180, 0.05), (12, 150, 0.05), (25, 120, 0.05), (34, 100, 0.10)]
+        for slot, expected, tol in targets:
             samples = [config.sample_visit_duration(slot, config.get_rng(i)) for i in range(5000)]
             actual = np.mean(samples)
-            assert abs(actual - expected) / expected < 0.05, (
+            assert abs(actual - expected) / expected < tol, (
                 f"Slot {slot}: expected ~{expected}, got {actual:.1f}"
             )
 

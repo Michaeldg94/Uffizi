@@ -1,957 +1,216 @@
 {
-  "table": [
-    {
-      "intervention": "Status Quo (baseline)",
-      "total_welfare": 17781.035815053958,
-      "type_a_welfare": 3823.9395306784695,
-      "type_b_welfare": 13957.09628437549,
-      "peak_dens_bott": 1.5454545454545454,
-      "occupancy_gini": 0.7164902056941131,
-      "revenue": 62154.0,
-      "experience_quality": 1.9647121529141085,
-      "experience_intimacy": 0.5476385311665974,
-      "experience_surprise": 0.8230206454237279,
-      "experience_narrative_coherence": 0.03255288560279318,
-      "experience_engagement_depth": 0.5615000907209896,
-      "gap_closed": 0.0
-    },
-    {
-      "intervention": "Decoupled Bott. Gating",
-      "total_welfare": 17985.704366454414,
-      "type_a_welfare": 3860.968893172446,
-      "type_b_welfare": 14124.735473281968,
-      "peak_dens_bott": 0.6,
-      "occupancy_gini": 0.7426115524314456,
-      "revenue": 60157.0,
-      "experience_quality": 2.0489704999855793,
-      "experience_intimacy": 0.6143044829343216,
-      "experience_surprise": 0.8836927826726333,
-      "experience_narrative_coherence": 0.033992583436341164,
-      "experience_engagement_depth": 0.5169806509422833,
-      "gap_closed": 0.11117446276168691
-    },
-    {
-      "intervention": "Tour Group Cap (15)",
-      "total_welfare": 18027.21367498778,
-      "type_a_welfare": 2848.3114945309035,
-      "type_b_welfare": 15178.902180456875,
-      "peak_dens_bott": 1.5636363636363637,
-      "occupancy_gini": 0.7146523299109022,
-      "revenue": 60920.0,
-      "experience_quality": 1.9523859588444277,
-      "experience_intimacy": 0.5470233027612145,
-      "experience_surprise": 0.8218343179464057,
-      "experience_narrative_coherence": 0.027605137766728818,
-      "experience_engagement_depth": 0.5559232003700786,
-      "gap_closed": 0.13372201608255158
-    },
-    {
-      "intervention": "Timed Entry",
-      "total_welfare": 18419.50551195904,
-      "type_a_welfare": 4392.267325229948,
-      "type_b_welfare": 14027.23818672909,
-      "peak_dens_bott": 1.6181818181818182,
-      "occupancy_gini": 0.7342845570008856,
-      "revenue": 66715.0,
-      "experience_quality": 1.9720299314570708,
-      "experience_intimacy": 0.5497261811725913,
-      "experience_surprise": 0.8203515762914478,
-      "experience_narrative_coherence": 0.030288558214357532,
-      "experience_engagement_depth": 0.5716636157786742,
-      "gap_closed": 0.3468120776609024
-    },
-    {
-      "intervention": "Resident Annual Pass",
-      "total_welfare": 17525.372596794754,
-      "type_a_welfare": 3706.2124100485944,
-      "type_b_welfare": 13819.16018674616,
-      "peak_dens_bott": 1.6,
-      "occupancy_gini": 0.7175808300899122,
-      "revenue": 58922.0,
-      "experience_quality": 1.9636402845988858,
-      "experience_intimacy": 0.5473310439502227,
-      "experience_surprise": 0.8208264693222646,
-      "experience_narrative_coherence": 0.03455560191946589,
-      "experience_engagement_depth": 0.5609271694069327,
-      "gap_closed": -0.13887439346887115
-    },
-    {
-      "intervention": "Temporary Exhibition",
-      "total_welfare": 17812.255829903897,
-      "type_a_welfare": 4005.3896404716916,
-      "type_b_welfare": 13806.866189432207,
-      "peak_dens_bott": 1.6727272727272726,
-      "occupancy_gini": 0.7258891396808895,
-      "revenue": 61769.0,
-      "experience_quality": 1.9934349461667284,
-      "experience_intimacy": 0.5219811183677671,
-      "experience_surprise": 0.8215284167972013,
-      "experience_narrative_coherence": 0.034981534673779235,
-      "experience_engagement_depth": 0.614943876327981,
-      "gap_closed": 0.016958484117878897
-    },
-    {
-      "intervention": "Skip-the-Famous (20%)",
-      "total_welfare": 17570.855500274767,
-      "type_a_welfare": 3964.1007378735785,
-      "type_b_welfare": 13606.75476240119,
-      "peak_dens_bott": 1.4727272727272727,
-      "occupancy_gini": 0.7186017127837157,
-      "revenue": 60747.0,
-      "experience_quality": 1.9893849259657854,
-      "experience_intimacy": 0.5976178469462389,
-      "experience_surprise": 0.7905166165160884,
-      "experience_narrative_coherence": 0.0359251968503937,
-      "experience_engagement_depth": 0.5653252656530646,
-      "gap_closed": -0.11416841238563939
-    },
-    {
-      "intervention": "Themed Week (Caravaggio)",
-      "total_welfare": 16796.195586683298,
-      "type_a_welfare": 3647.6548053719926,
-      "type_b_welfare": 13148.540781311305,
-      "peak_dens_bott": 1.8363636363636364,
-      "occupancy_gini": 0.7146893003926096,
-      "revenue": 56677.0,
-      "experience_quality": 1.9675923748018738,
-      "experience_intimacy": 0.5530643649559958,
-      "experience_surprise": 0.8242294474060446,
-      "experience_narrative_coherence": 0.03271484375,
-      "experience_engagement_depth": 0.5575837186898336,
-      "gap_closed": -0.5349580213766095
-    },
-    {
-      "intervention": "Multi-Room Buffer",
-      "total_welfare": 17588.96118460541,
-      "type_a_welfare": 3832.601211054003,
-      "type_b_welfare": 13756.359973551405,
-      "peak_dens_bott": 1.4181818181818182,
-      "occupancy_gini": 0.7157320063722643,
-      "revenue": 62952.0,
-      "experience_quality": 1.9726345266099423,
-      "experience_intimacy": 0.5487277735217454,
-      "experience_surprise": 0.8237329495890955,
-      "experience_narrative_coherence": 0.03370466321243523,
-      "experience_engagement_depth": 0.566469140286666,
-      "gap_closed": -0.1043335368533769
-    },
-    {
-      "intervention": "Crowd Forecast",
-      "total_welfare": 17729.785961865586,
-      "type_a_welfare": 3978.2588441807393,
-      "type_b_welfare": 13751.527117684846,
-      "peak_dens_bott": 1.490909090909091,
-      "occupancy_gini": 0.7192926599168605,
-      "revenue": 62723.0,
-      "experience_quality": 1.9511168778514336,
-      "experience_intimacy": 0.5303410416629312,
-      "experience_surprise": 0.8222086549314627,
-      "experience_narrative_coherence": 0.0362786614335881,
-      "experience_engagement_depth": 0.5622885198234516,
-      "gap_closed": -0.027838546058228858
-    },
-    {
-      "intervention": "Achievement System",
-      "total_welfare": 17575.70156052996,
-      "type_a_welfare": 4034.4069502323555,
-      "type_b_welfare": 13541.294610297606,
-      "peak_dens_bott": 1.6181818181818182,
-      "occupancy_gini": 0.7171518643563548,
-      "revenue": 61233.0,
-      "experience_quality": 2.1189058783211077,
-      "experience_intimacy": 0.5510161145219079,
-      "experience_surprise": 0.825534906894268,
-      "experience_narrative_coherence": 0.036005575056782986,
-      "experience_engagement_depth": 0.7063492818481493,
-      "gap_closed": -0.11153606783785529
-    },
-    {
-      "intervention": "Last-Hour Locals",
-      "total_welfare": 18768.626503354608,
-      "type_a_welfare": 4015.9046965494827,
-      "type_b_welfare": 14752.721806805126,
-      "peak_dens_bott": 1.5454545454545454,
-      "occupancy_gini": 0.7183085526354533,
-      "revenue": 64912.0,
-      "experience_quality": 1.9596673980557457,
-      "experience_intimacy": 0.5416975594113688,
-      "experience_surprise": 0.8246195058376666,
-      "experience_narrative_coherence": 0.03189320388349515,
-      "experience_engagement_depth": 0.5614571289232151,
-      "gap_closed": 0.5364520511284784
-    },
-    {
-      "intervention": "Adaptive Audio Guide",
-      "total_welfare": 17701.471719536305,
-      "type_a_welfare": 4009.583301366092,
-      "type_b_welfare": 13691.888418170214,
-      "peak_dens_bott": 1.6727272727272726,
-      "occupancy_gini": 0.7188934559878386,
-      "revenue": 60528.0,
-      "experience_quality": 2.017736429313002,
-      "experience_intimacy": 0.592692595858433,
-      "experience_surprise": 0.82200007114472,
-      "experience_narrative_coherence": 0.03406514120799835,
-      "experience_engagement_depth": 0.56897862110185,
-      "gap_closed": -0.04321863575898109
-    },
-    {
-      "intervention": "Lunch Free Entry",
-      "total_welfare": 17766.8279064144,
-      "type_a_welfare": 3892.051542800038,
-      "type_b_welfare": 13874.77636361436,
-      "peak_dens_bott": 1.5454545454545454,
-      "occupancy_gini": 0.7190912359876975,
-      "revenue": 61885.0,
-      "experience_quality": 1.9603551333043483,
-      "experience_intimacy": 0.537624325780046,
-      "experience_surprise": 0.8232739205144356,
-      "experience_narrative_coherence": 0.03401622509755597,
-      "experience_engagement_depth": 0.565440661912311,
-      "gap_closed": -0.00771763223593302
-    },
-    {
-      "intervention": "Vasari Narration",
-      "total_welfare": 17639.563024356747,
-      "type_a_welfare": 3976.3489289934896,
-      "type_b_welfare": 13663.214095363257,
-      "peak_dens_bott": 1.5636363636363637,
-      "occupancy_gini": 0.7163228005345819,
-      "revenue": 60917.0,
-      "experience_quality": 2.027751327449523,
-      "experience_intimacy": 0.5404843636909326,
-      "experience_surprise": 0.8187975151665589,
-      "experience_narrative_coherence": 0.11342467816602193,
-      "experience_engagement_depth": 0.5550447704260094,
-      "gap_closed": -0.07684698696276569
-    },
-    {
-      "intervention": "Quiet Hours",
-      "total_welfare": 16682.841517427252,
-      "type_a_welfare": 3717.1229440782768,
-      "type_b_welfare": 12965.718573348977,
-      "peak_dens_bott": 1.6363636363636365,
-      "occupancy_gini": 0.7126432463882582,
-      "revenue": 58778.0,
-      "experience_quality": 2.011288103540352,
-      "experience_intimacy": 0.5946320837681804,
-      "experience_surprise": 0.818455387131708,
-      "experience_narrative_coherence": 0.03479722283447212,
-      "experience_engagement_depth": 0.5634034098059918,
-      "gap_closed": -0.5965311241574786
-    },
-    {
-      "intervention": "Photo Spots",
-      "total_welfare": 17596.55119049017,
-      "type_a_welfare": 3854.9535432173384,
-      "type_b_welfare": 13741.59764727283,
-      "peak_dens_bott": 1.6181818181818182,
-      "occupancy_gini": 0.7188573026341114,
-      "revenue": 60889.0,
-      "experience_quality": 1.9681544514301108,
-      "experience_intimacy": 0.5394759823057889,
-      "experience_surprise": 0.8214766540316736,
-      "experience_narrative_coherence": 0.032687525901367594,
-      "experience_engagement_depth": 0.5745142891912807,
-      "gap_closed": -0.10021070107415146
-    },
-    {
-      "intervention": "Comparative Displays",
-      "total_welfare": 17708.7744885997,
-      "type_a_welfare": 3870.45072649398,
-      "type_b_welfare": 13838.323762105723,
-      "peak_dens_bott": 1.6181818181818182,
-      "occupancy_gini": 0.7195810480421263,
-      "revenue": 62047.0,
-      "experience_quality": 2.0049075764914983,
-      "experience_intimacy": 0.5394887196570969,
-      "experience_surprise": 0.8231098167147229,
-      "experience_narrative_coherence": 0.033286922442244224,
-      "experience_engagement_depth": 0.609022117677434,
-      "gap_closed": -0.03925182492389921
-    },
-    {
-      "intervention": "Weather Routing",
-      "total_welfare": 17814.520353859647,
-      "type_a_welfare": 3830.564759319753,
-      "type_b_welfare": 13983.955594539895,
-      "peak_dens_bott": 1.5818181818181818,
-      "occupancy_gini": 0.7192535174113255,
-      "revenue": 61863.0,
-      "experience_quality": 1.952779447270593,
-      "experience_intimacy": 0.5361155240583994,
-      "experience_surprise": 0.8218112192986922,
-      "experience_narrative_coherence": 0.031121821164889252,
-      "experience_engagement_depth": 0.5637308827486123,
-      "gap_closed": 0.018188556996534502
-    },
-    {
-      "intervention": "Sound Design",
-      "total_welfare": 17788.96164288783,
-      "type_a_welfare": 3824.3784910175204,
-      "type_b_welfare": 13964.583151870309,
-      "peak_dens_bott": 1.5818181818181818,
-      "occupancy_gini": 0.719189812746633,
-      "revenue": 60646.0,
-      "experience_quality": 1.9970231502393783,
-      "experience_intimacy": 0.5424619442181566,
-      "experience_surprise": 0.8219904520109396,
-      "experience_narrative_coherence": 0.030312371557747637,
-      "experience_engagement_depth": 0.6022583824525346,
-      "gap_closed": 0.004305251810026171
-    },
-    {
-      "intervention": "Adaptive Trail",
-      "total_welfare": 17594.493140397484,
-      "type_a_welfare": 4006.466142431741,
-      "type_b_welfare": 13588.026997965744,
-      "peak_dens_bott": 1.490909090909091,
-      "occupancy_gini": 0.7214305621064281,
-      "revenue": 60820.0,
-      "experience_quality": 1.9650414720618377,
-      "experience_intimacy": 0.5381104141702303,
-      "experience_surprise": 0.8253765612073354,
-      "experience_narrative_coherence": 0.03876991516656321,
-      "experience_engagement_depth": 0.5627845815177088,
-      "gap_closed": -0.10132861885793033
-    },
-    {
-      "intervention": "Predictive Routing",
-      "total_welfare": 17685.823989402674,
-      "type_a_welfare": 4064.9539146295024,
-      "type_b_welfare": 13620.870074773171,
-      "peak_dens_bott": 1.8,
-      "occupancy_gini": 0.7228708876892536,
-      "revenue": 60416.0,
-      "experience_quality": 1.9555088362913382,
-      "experience_intimacy": 0.5283621260121916,
-      "experience_surprise": 0.8206945519909563,
-      "experience_narrative_coherence": 0.037618361465623716,
-      "experience_engagement_depth": 0.5688337968225666,
-      "gap_closed": -0.05171836851783808
-    },
-    {
-      "intervention": "Room Nobody Knows",
-      "total_welfare": 17543.40607987373,
-      "type_a_welfare": 4042.976952848485,
-      "type_b_welfare": 13500.429127025245,
-      "peak_dens_bott": 1.6727272727272726,
-      "occupancy_gini": 0.7227507050316275,
-      "revenue": 61268.0,
-      "experience_quality": 1.9785585667861967,
-      "experience_intimacy": 0.5378611676460895,
-      "experience_surprise": 0.8225100922817841,
-      "experience_narrative_coherence": 0.03379149377593361,
-      "experience_engagement_depth": 0.5843958130823896,
-      "gap_closed": -0.1290787371293468
-    },
-    {
-      "intervention": "Seating Strategy",
-      "total_welfare": 17627.45652358731,
-      "type_a_welfare": 3756.0986159234617,
-      "type_b_welfare": 13871.357907663845,
-      "peak_dens_bott": 1.509090909090909,
-      "occupancy_gini": 0.717310003799269,
-      "revenue": 59735.0,
-      "experience_quality": 1.9575667523558342,
-      "experience_intimacy": 0.5405106658507343,
-      "experience_surprise": 0.8247732739980229,
-      "experience_narrative_coherence": 0.03390269151138716,
-      "experience_engagement_depth": 0.5583801209956899,
-      "gap_closed": -0.0834231497867881
-    },
-    {
-      "intervention": "Progress Bar",
-      "total_welfare": 17567.80922024174,
-      "type_a_welfare": 3947.96307449734,
-      "type_b_welfare": 13619.846145744401,
-      "peak_dens_bott": 1.709090909090909,
-      "occupancy_gini": 0.7165215056761678,
-      "revenue": 61495.0,
-      "experience_quality": 1.9685815545991474,
-      "experience_intimacy": 0.5488290028160577,
-      "experience_surprise": 0.821287312112957,
-      "experience_narrative_coherence": 0.03659863240779113,
-      "experience_engagement_depth": 0.5618666072623416,
-      "gap_closed": -0.11582312945758898
-    },
-    {
-      "intervention": "Social Proof Nudge",
-      "total_welfare": 17471.485986805455,
-      "type_a_welfare": 4034.9751240051796,
-      "type_b_welfare": 13436.510862800276,
-      "peak_dens_bott": 1.6,
-      "occupancy_gini": 0.7176542089145157,
-      "revenue": 59395.0,
-      "experience_quality": 1.9633822122515447,
-      "experience_intimacy": 0.5425077036753685,
-      "experience_surprise": 0.8218072005949282,
-      "experience_narrative_coherence": 0.0352843503528435,
-      "experience_engagement_depth": 0.5637829576284046,
-      "gap_closed": -0.16814520656944915
-    },
-    {
-      "intervention": "Queue-to-Content",
-      "total_welfare": 17546.60915120119,
-      "type_a_welfare": 3960.982444400391,
-      "type_b_welfare": 13585.626706800802,
-      "peak_dens_bott": 1.5818181818181818,
-      "occupancy_gini": 0.7220355488103263,
-      "revenue": 61106.0,
-      "experience_quality": 1.9657586998240941,
-      "experience_intimacy": 0.5381526434200479,
-      "experience_surprise": 0.8225596573373924,
-      "experience_narrative_coherence": 0.03816635552789878,
-      "experience_engagement_depth": 0.566880043538755,
-      "gap_closed": -0.12733885217105068
-    },
-    {
-      "intervention": "Social Media Spot",
-      "total_welfare": 17441.770834588577,
-      "type_a_welfare": 3972.9573651074215,
-      "type_b_welfare": 13468.813469481156,
-      "peak_dens_bott": 1.6545454545454545,
-      "occupancy_gini": 0.717517341774472,
-      "revenue": 60504.0,
-      "experience_quality": 1.9630786938088125,
-      "experience_intimacy": 0.5463802164801239,
-      "experience_surprise": 0.8201851704319258,
-      "experience_narrative_coherence": 0.03711710773077725,
-      "experience_engagement_depth": 0.5593961991659854,
-      "gap_closed": -0.18428626029259518
-    },
-    {
-      "intervention": "Painting Talks",
-      "total_welfare": 17737.824561949856,
-      "type_a_welfare": 3939.4820359782852,
-      "type_b_welfare": 13798.34252597157,
-      "peak_dens_bott": 1.5454545454545454,
-      "occupancy_gini": 0.7193462787028344,
-      "revenue": 62227.0,
-      "experience_quality": 2.0188287491714765,
-      "experience_intimacy": 0.5870354687712415,
-      "experience_surprise": 0.8222379280902704,
-      "experience_narrative_coherence": 0.03769270298047277,
-      "experience_engagement_depth": 0.5718626493294922,
-      "gap_closed": -0.023472037185176976
-    },
-    {
-      "intervention": "Group Surcharge (EUR12)",
-      "total_welfare": 16286.268470961535,
-      "type_a_welfare": 3734.6559636975235,
-      "type_b_welfare": 12551.612507264012,
-      "peak_dens_bott": 1.6181818181818182,
-      "occupancy_gini": 0.7165592781385413,
-      "revenue": 57035.0,
-      "experience_quality": 2.014106804425295,
-      "experience_intimacy": 0.5969940215884447,
-      "experience_surprise": 0.8199797314690993,
-      "experience_narrative_coherence": 0.035702132486388385,
-      "experience_engagement_depth": 0.5614309188813629,
-      "gap_closed": -0.8119467074745609
-    },
-    {
-      "intervention": "Hidden Gem Trails",
-      "total_welfare": 17655.41961608688,
-      "type_a_welfare": 4078.216254205782,
-      "type_b_welfare": 13577.203361881098,
-      "peak_dens_bott": 1.6727272727272726,
-      "occupancy_gini": 0.7237262900211596,
-      "revenue": 60753.0,
-      "experience_quality": 1.972641314688859,
-      "experience_intimacy": 0.5334031692964687,
-      "experience_surprise": 0.8218761836606945,
-      "experience_narrative_coherence": 0.047757731958762886,
-      "experience_engagement_depth": 0.5696042297729331,
-      "gap_closed": -0.0682338021096617
-    },
-    {
-      "intervention": "All 30 Combined",
-      "total_welfare": 19570.878416081487,
-      "type_a_welfare": 4346.661073544636,
-      "type_b_welfare": 15224.217342536851,
-      "peak_dens_bott": 0.7454545454545455,
-      "occupancy_gini": 0.7532697811867775,
-      "revenue": 65692.0,
-      "experience_quality": 2.1805106992974235,
-      "experience_intimacy": 0.448548526000666,
-      "experience_surprise": 0.8374839926885731,
-      "experience_narrative_coherence": 0.0628240829652391,
-      "experience_engagement_depth": 0.8316540976429455,
-      "gap_closed": 0.9722294325906481
-    },
-    {
-      "intervention": "Social Optimum (ceiling)",
-      "total_welfare": 19622.00312279965,
-      "type_a_welfare": 4615.010736087853,
-      "type_b_welfare": 15006.9923867118,
-      "peak_dens_bott": 0.7272727272727273,
-      "occupancy_gini": 0.7497470757444211,
-      "revenue": 65507.0,
-      "experience_quality": 2.200178022281233,
-      "experience_intimacy": 0.45187285586285547,
-      "experience_surprise": 0.847171256320687,
-      "experience_narrative_coherence": 0.07117470937893473,
-      "experience_engagement_depth": 0.8299592007187562,
-      "gap_closed": 1.0
-    }
-  ],
-  "interactions": [
-    {
-      "pair": "Timed Entry + Tour Group Cap",
-      "welfare_combined": 18825.160008736857,
-      "welfare_a": 18918.8957303812,
-      "welfare_b": 18142.639681280143,
-      "welfare_baseline": 17670.67997808965,
-      "interaction_effect": -565.6954248348338,
-      "complementary": false
-    },
-    {
-      "pair": "Timed Entry + Photography Ban",
-      "welfare_combined": 18611.412078315778,
-      "welfare_a": 18408.371504747363,
-      "welfare_b": 17686.585723486234,
-      "welfare_baseline": 17557.513123596655,
-      "interaction_effect": 73.96797367883482,
-      "complementary": true
-    },
-    {
-      "pair": "Timed Entry + Congestion Pricing",
-      "welfare_combined": 18548.08372135739,
-      "welfare_a": 18618.705413359778,
-      "welfare_b": 17688.645466627946,
-      "welfare_baseline": 17506.025405674834,
-      "interaction_effect": -253.24175295549867,
-      "complementary": false
-    },
-    {
-      "pair": "Timed Entry + Crowd Forecast",
-      "welfare_combined": 18444.988300240497,
-      "welfare_a": 18444.988300240497,
-      "welfare_b": 18159.741747702363,
-      "welfare_baseline": 17487.759693059226,
-      "interaction_effect": -671.9820546431365,
-      "complementary": false
-    },
-    {
-      "pair": "Timed Entry + Adaptive Audio",
-      "welfare_combined": 18524.854543446552,
-      "welfare_a": 18278.57115113463,
-      "welfare_b": 17670.930411199643,
-      "welfare_baseline": 17632.958965546473,
-      "interaction_effect": 208.31194665875228,
-      "complementary": true
-    },
-    {
-      "pair": "Tour Group Cap + Photography Ban",
-      "welfare_combined": 18170.52797395331,
-      "welfare_a": 18127.50879333515,
-      "welfare_b": 17751.67098904797,
-      "welfare_baseline": 17592.005817985675,
-      "interaction_effect": -116.64599044413262,
-      "complementary": false
-    },
-    {
-      "pair": "Tour Group Cap + Congestion Pricing",
-      "welfare_combined": 18263.632035426297,
-      "welfare_a": 17965.048405842386,
-      "welfare_b": 17660.830486350118,
-      "welfare_baseline": 17539.90523580835,
-      "interaction_effect": 177.65837904214277,
-      "complementary": true
-    },
-    {
-      "pair": "Tour Group Cap + Crowd Forecast",
-      "welfare_combined": 18233.878560064306,
-      "welfare_a": 18187.774523262437,
-      "welfare_b": 17947.56917387408,
-      "welfare_baseline": 17773.00747807734,
-      "interaction_effect": -128.45765899487014,
-      "complementary": false
-    },
-    {
-      "pair": "Tour Group Cap + Adaptive Audio",
-      "welfare_combined": 18210.53765417189,
-      "welfare_a": 17943.899185265876,
-      "welfare_b": 17597.72339206392,
-      "welfare_baseline": 17666.03072248282,
-      "interaction_effect": 334.94579932491615,
-      "complementary": true
-    },
-    {
-      "pair": "Photography Ban + Congestion Pricing",
-      "welfare_combined": 17687.89117459708,
-      "welfare_a": 17588.87516707351,
-      "welfare_b": 17769.403615743402,
-      "welfare_baseline": 17583.2078747113,
-      "interaction_effect": -87.17973350853208,
-      "complementary": false
-    },
-    {
-      "pair": "Photography Ban + Crowd Forecast",
-      "welfare_combined": 18197.961197839515,
-      "welfare_a": 17704.378878346124,
-      "welfare_b": 18037.680125437586,
-      "welfare_baseline": 17578.15769788381,
-      "interaction_effect": 34.05989193961432,
-      "complementary": true
-    },
-    {
-      "pair": "Photography Ban + Adaptive Audio",
-      "welfare_combined": 17799.14973086393,
-      "welfare_a": 17694.886229461226,
-      "welfare_b": 17684.83081839433,
-      "welfare_baseline": 17489.2802028943,
-      "interaction_effect": -91.28711409732568,
-      "complementary": false
-    },
-    {
-      "pair": "Congestion Pricing + Crowd Forecast",
-      "welfare_combined": 18025.341905556168,
-      "welfare_a": 17836.398850640187,
-      "welfare_b": 17924.508129150778,
-      "welfare_baseline": 17465.98495957788,
-      "interaction_effect": -269.58011465691743,
-      "complementary": false
-    },
-    {
-      "pair": "Congestion Pricing + Adaptive Audio",
-      "welfare_combined": 17800.213150377258,
-      "welfare_a": 17484.019429063937,
-      "welfare_b": 17564.458645984858,
-      "welfare_baseline": 17588.99025382539,
-      "interaction_effect": 340.7253291538509,
-      "complementary": true
-    },
-    {
-      "pair": "Crowd Forecast + Adaptive Audio",
-      "welfare_combined": 17984.810918814634,
-      "welfare_a": 18160.038856179166,
-      "welfare_b": 17604.3146127952,
-      "welfare_baseline": 17668.096263764106,
-      "interaction_effect": -111.44628639562507,
-      "complementary": false
-    }
-  ],
-  "portfolio": {
-    "active": [
-      "last_hour_locals",
-      "timed_entry",
-      "resident_annual_pass",
-      "lunch_free_entry"
-    ],
-    "deployment_order": [
-      "last_hour_locals",
-      "timed_entry",
-      "resident_annual_pass",
-      "lunch_free_entry"
-    ],
-    "welfare": 22539.758939095795,
-    "revenue": 77646.0,
-    "experience_quality": 1.831862305939826,
-    "objective": 23316.218939095794,
-    "ranked_screen": [
-      {
-        "name": "last_hour_locals",
-        "label": "Last-Hour Locals",
-        "welfare": 18768.626503354608,
-        "revenue": 64912.0,
-        "experience_quality": 1.9596673980557457,
-        "delta_w": 987.5906883006501,
-        "delta_r": 2758.0
-      },
-      {
-        "name": "timed_entry",
-        "label": "Timed Entry",
-        "welfare": 18419.50551195904,
-        "revenue": 66715.0,
-        "experience_quality": 1.9720299314570708,
-        "delta_w": 638.469696905082,
-        "delta_r": 4561.0
-      },
-      {
-        "name": "tour_group_cap",
-        "label": "Tour Group Cap (15)",
-        "welfare": 18027.21367498778,
-        "revenue": 60920.0,
-        "experience_quality": 1.9523859588444277,
-        "delta_w": 246.1778599338213,
-        "delta_r": -1234.0
-      },
-      {
-        "name": "decoupled_botticelli_gating",
-        "label": "Decoupled Bott. Gating",
-        "welfare": 17985.704366454414,
-        "revenue": 60157.0,
-        "experience_quality": 2.0489704999855793,
-        "delta_w": 204.66855140045664,
-        "delta_r": -1997.0
-      },
-      {
-        "name": "weather_routing",
-        "label": "Weather Routing",
-        "welfare": 17814.520353859647,
-        "revenue": 61863.0,
-        "experience_quality": 1.952779447270593,
-        "delta_w": 33.484538805689226,
-        "delta_r": -291.0
-      },
-      {
-        "name": "temporary_exhibit_room",
-        "label": "Temporary Exhibition",
-        "welfare": 17812.255829903897,
-        "revenue": 61769.0,
-        "experience_quality": 1.9934349461667284,
-        "delta_w": 31.220014849939616,
-        "delta_r": -385.0
-      },
-      {
-        "name": "sound_design",
-        "label": "Sound Design",
-        "welfare": 17788.96164288783,
-        "revenue": 60646.0,
-        "experience_quality": 1.9970231502393783,
-        "delta_w": 7.925827833871153,
-        "delta_r": -1508.0
-      },
-      {
-        "name": "baseline",
-        "label": "Status Quo (baseline)",
-        "welfare": 17781.035815053958,
-        "revenue": 62154.0,
-        "experience_quality": 1.9647121529141085,
-        "delta_w": 0.0,
-        "delta_r": 0.0
-      },
-      {
-        "name": "lunch_free_entry",
-        "label": "Lunch Free Entry",
-        "welfare": 17766.8279064144,
-        "revenue": 61885.0,
-        "experience_quality": 1.9603551333043483,
-        "delta_w": -14.20790863955699,
-        "delta_r": -269.0
-      },
-      {
-        "name": "painting_talks",
-        "label": "Painting Talks",
-        "welfare": 17737.824561949856,
-        "revenue": 62227.0,
-        "experience_quality": 2.0188287491714765,
-        "delta_w": -43.21125310410207,
-        "delta_r": 73.0
-      },
-      {
-        "name": "crowd_forecast",
-        "label": "Crowd Forecast",
-        "welfare": 17729.785961865586,
-        "revenue": 62723.0,
-        "experience_quality": 1.9511168778514336,
-        "delta_w": -51.24985318837207,
-        "delta_r": 569.0
-      },
-      {
-        "name": "comparative_displays",
-        "label": "Comparative Displays",
-        "welfare": 17708.7744885997,
-        "revenue": 62047.0,
-        "experience_quality": 2.0049075764914983,
-        "delta_w": -72.26132645425605,
-        "delta_r": -107.0
-      },
-      {
-        "name": "adaptive_audio_guide",
-        "label": "Adaptive Audio Guide",
-        "welfare": 17701.471719536305,
-        "revenue": 60528.0,
-        "experience_quality": 2.017736429313002,
-        "delta_w": -79.56409551765319,
-        "delta_r": -1626.0
-      },
-      {
-        "name": "predictive_routing",
-        "label": "Predictive Routing",
-        "welfare": 17685.823989402674,
-        "revenue": 60416.0,
-        "experience_quality": 1.9555088362913382,
-        "delta_w": -95.21182565128402,
-        "delta_r": -1738.0
-      },
-      {
-        "name": "hidden_gem_trails",
-        "label": "Hidden Gem Trails",
-        "welfare": 17655.41961608688,
-        "revenue": 60753.0,
-        "experience_quality": 1.972641314688859,
-        "delta_w": -125.61619896707634,
-        "delta_r": -1401.0
-      },
-      {
-        "name": "vasari_narration",
-        "label": "Vasari Narration",
-        "welfare": 17639.563024356747,
-        "revenue": 60917.0,
-        "experience_quality": 2.027751327449523,
-        "delta_w": -141.47279069721117,
-        "delta_r": -1237.0
-      },
-      {
-        "name": "seating_strategy",
-        "label": "Seating Strategy",
-        "welfare": 17627.45652358731,
-        "revenue": 59735.0,
-        "experience_quality": 1.9575667523558342,
-        "delta_w": -153.579291466649,
-        "delta_r": -2419.0
-      },
-      {
-        "name": "designated_photo_spots",
-        "label": "Photo Spots",
-        "welfare": 17596.55119049017,
-        "revenue": 60889.0,
-        "experience_quality": 1.9681544514301108,
-        "delta_w": -184.4846245637891,
-        "delta_r": -1265.0
-      },
-      {
-        "name": "adaptive_trail",
-        "label": "Adaptive Trail",
-        "welfare": 17594.493140397484,
-        "revenue": 60820.0,
-        "experience_quality": 1.9650414720618377,
-        "delta_w": -186.54267465647354,
-        "delta_r": -1334.0
-      },
-      {
-        "name": "multi_room_buffer",
-        "label": "Multi-Room Buffer",
-        "welfare": 17588.96118460541,
-        "revenue": 62952.0,
-        "experience_quality": 1.9726345266099423,
-        "delta_w": -192.0746304485474,
-        "delta_r": 798.0
-      },
-      {
-        "name": "achievement_system",
-        "label": "Achievement System",
-        "welfare": 17575.70156052996,
-        "revenue": 61233.0,
-        "experience_quality": 2.1189058783211077,
-        "delta_w": -205.33425452399752,
-        "delta_r": -921.0
-      },
-      {
-        "name": "skip_the_famous",
-        "label": "Skip-the-Famous (20%)",
-        "welfare": 17570.855500274767,
-        "revenue": 60747.0,
-        "experience_quality": 1.9893849259657854,
-        "delta_w": -210.18031477919067,
-        "delta_r": -1407.0
-      },
-      {
-        "name": "progress_bar",
-        "label": "Progress Bar",
-        "welfare": 17567.80922024174,
-        "revenue": 61495.0,
-        "experience_quality": 1.9685815545991474,
-        "delta_w": -213.22659481221854,
-        "delta_r": -659.0
-      },
-      {
-        "name": "queue_to_content",
-        "label": "Queue-to-Content",
-        "welfare": 17546.60915120119,
-        "revenue": 61106.0,
-        "experience_quality": 1.9657586998240941,
-        "delta_w": -234.42666385276607,
-        "delta_r": -1048.0
-      },
-      {
-        "name": "room_nobody_knows",
-        "label": "Room Nobody Knows",
-        "welfare": 17543.40607987373,
-        "revenue": 61268.0,
-        "experience_quality": 1.9785585667861967,
-        "delta_w": -237.62973518022773,
-        "delta_r": -886.0
-      },
-      {
-        "name": "resident_annual_pass",
-        "label": "Resident Annual Pass",
-        "welfare": 17525.372596794754,
-        "revenue": 58922.0,
-        "experience_quality": 1.9636402845988858,
-        "delta_w": -255.66321825920386,
-        "delta_r": -3232.0
-      },
-      {
-        "name": "social_proof_nudge",
-        "label": "Social Proof Nudge",
-        "welfare": 17471.485986805455,
-        "revenue": 59395.0,
-        "experience_quality": 1.9633822122515447,
-        "delta_w": -309.5498282485023,
-        "delta_r": -2759.0
-      },
-      {
-        "name": "social_media_spot",
-        "label": "Social Media Spot",
-        "welfare": 17441.770834588577,
-        "revenue": 60504.0,
-        "experience_quality": 1.9630786938088125,
-        "delta_w": -339.2649804653811,
-        "delta_r": -1650.0
-      },
-      {
-        "name": "themed_weeks",
-        "label": "Themed Week (Caravaggio)",
-        "welfare": 16796.195586683298,
-        "revenue": 56677.0,
-        "experience_quality": 1.9675923748018738,
-        "delta_w": -984.84022837066,
-        "delta_r": -5477.0
-      },
-      {
-        "name": "quiet_hours",
-        "label": "Quiet Hours",
-        "welfare": 16682.841517427252,
-        "revenue": 58778.0,
-        "experience_quality": 2.011288103540352,
-        "delta_w": -1098.1942976267055,
-        "delta_r": -3376.0
-      },
-      {
-        "name": "per_person_group_surcharge",
-        "label": "Group Surcharge (EUR12)",
-        "welfare": 16286.268470961535,
-        "revenue": 57035.0,
-        "experience_quality": 2.014106804425295,
-        "delta_w": -1494.7673440924227,
-        "delta_r": -5119.0
-      }
-    ]
+ "baseline_welfare": 293.20371950461526,
+ "baseline_revenue": 93714.66666666731,
+ "table": [
+  {
+   "intervention": "Status Quo (baseline)",
+   "total_welfare": 293.20371950461526,
+   "peak_botticelli_density": 1.8,
+   "occupancy_gini": 0.6849150836957247,
+   "revenue": 93714.66666666731
   },
-  "competitive": {
-    "baseline": {
-      "estimated_visitors": 208.90991972561298,
-      "market_share": 0.02507019317480055,
-      "uffizi_value_score": 0.14222222222222222,
-      "best_alternative_value": 1.7999999999999998,
-      "total_pool": 8333.0,
-      "daily_revenue_estimate": 5222.747993140324,
-      "price": 25.0,
-      "experience": 8.0
-    },
-    "optimized": {
-      "estimated_visitors": 220.96538212478157,
-      "market_share": 0.02651690653123504,
-      "uffizi_value_score": 0.17101617813045114,
-      "best_alternative_value": 1.7999999999999998,
-      "total_pool": 8333.0,
-      "daily_revenue_estimate": 3431.415612092158,
-      "price": 15.5292,
-      "experience": 8.0
-    }
+  {
+   "intervention": "Tour Group Cap (10)",
+   "total_welfare": 291.49074752491777,
+   "revenue": 95942.0,
+   "peak_botticelli_density": 2.036363636363636,
+   "occupancy_gini": 0.703594082473654
+  },
+  {
+   "intervention": "Timed Entry",
+   "total_welfare": 295.53566506550703,
+   "revenue": 96211.00000000057,
+   "peak_botticelli_density": 1.8727272727272728,
+   "occupancy_gini": 0.7144934729690193
+  },
+  {
+   "intervention": "Quiet Hours",
+   "total_welfare": 302.22930202953154,
+   "revenue": 91887.66666666693,
+   "peak_botticelli_density": 1.690909090909091,
+   "occupancy_gini": 0.6959678345604139
+  },
+  {
+   "intervention": "Group Surcharge (+EUR150 flat)",
+   "total_welfare": 301.77839044553525,
+   "revenue": 94877.66666666696,
+   "peak_botticelli_density": 1.9090909090909092,
+   "occupancy_gini": 0.6956192485385444
+  },
+  {
+   "intervention": "RAMA (Reservation-Anchored Masterpiece Access)",
+   "total_welfare": 296.70662720986604,
+   "revenue": 104195.0000000014,
+   "peak_botticelli_density": 1.0,
+   "occupancy_gini": 0.6362786343130058
+  },
+  {
+   "intervention": "Secondary-Attractor Enrichment",
+   "total_welfare": 329.35625034862403,
+   "revenue": 94617.00000000044,
+   "peak_botticelli_density": 2.1272727272727274,
+   "occupancy_gini": 0.6878152535892612
+  },
+  {
+   "intervention": "RAMA + Secondary-Attractor Enrichment",
+   "total_welfare": 310.23353738966546,
+   "revenue": 104815.0000000014,
+   "peak_botticelli_density": 1.0,
+   "occupancy_gini": 0.6310621675879291
+  },
+  {
+   "intervention": "Extended Hours (7:00-19:00)",
+   "total_welfare": 339.75259187884296,
+   "revenue": 108782.00000000096,
+   "peak_botticelli_density": 1.8,
+   "occupancy_gini": 0.6879878371773029
+  },
+  {
+   "intervention": "Dynamic Pricing (peak surcharge)",
+   "total_welfare": 276.1927857171665,
+   "revenue": 91745.33333333372,
+   "peak_botticelli_density": 2.418181818181818,
+   "occupancy_gini": 0.7102345819286855
+  },
+  {
+   "intervention": "Expanded Annual Pass Program",
+   "total_welfare": 283.17155474682517,
+   "revenue": 96343.66666666762,
+   "peak_botticelli_density": 2.109090909090909,
+   "occupancy_gini": 0.69161910165072
+  },
+  {
+   "intervention": "RAMA + Enrichment + Extended Hours + Dynamic Pricing",
+   "total_welfare": 352.18386137621025,
+   "revenue": 109643.00000000131,
+   "peak_botticelli_density": 1.0,
+   "occupancy_gini": 0.6292417551441021
+  },
+  {
+   "intervention": "All Interventions Combined",
+   "total_welfare": 390.1359706747149,
+   "peak_botticelli_density": 1.0,
+   "occupancy_gini": 0.6298272396754823,
+   "revenue": 100272.0
   }
+ ],
+ "portfolio": {
+  "active": [
+   "rama_enrich_extended_priced",
+   "tour_group_cap",
+   "resident_annual_pass"
+  ],
+  "welfare": 345.08033205293395,
+  "revenue": 116633.0
+ },
+ "ranked_screen": [
+  {
+   "name": "rama_enrich_extended_priced",
+   "label": "RAMA + Enrichment + Extended Hours + Dynamic Pricing",
+   "welfare": 352.18386137621025,
+   "revenue": 109643.00000000131,
+   "experience_quality": 2.9691158060407106,
+   "delta_w": 58.98014187159498,
+   "delta_r": 15928.333333333998
+  },
+  {
+   "name": "extended_hours",
+   "label": "Extended Hours (7:00-19:00)",
+   "welfare": 339.75259187884296,
+   "revenue": 108782.00000000096,
+   "experience_quality": 2.9132563084205048,
+   "delta_w": 46.5488723742277,
+   "delta_r": 15067.333333333649
+  },
+  {
+   "name": "secondary_attractor_enrichment",
+   "label": "Secondary-Attractor Enrichment",
+   "welfare": 329.35625034862403,
+   "revenue": 94617.00000000044,
+   "experience_quality": 3.057038228150772,
+   "delta_w": 36.152530844008766,
+   "delta_r": 902.3333333331248
+  },
+  {
+   "name": "rama_plus_enrichment",
+   "label": "RAMA + Secondary-Attractor Enrichment",
+   "welfare": 310.23353738966546,
+   "revenue": 104815.0000000014,
+   "experience_quality": 2.9795549484361956,
+   "delta_w": 17.029817885050193,
+   "delta_r": 11100.333333334085
+  },
+  {
+   "name": "quiet_hours",
+   "label": "Quiet Hours",
+   "welfare": 302.22930202953154,
+   "revenue": 91887.66666666693,
+   "experience_quality": 2.902315472585113,
+   "delta_w": 9.025582524916274,
+   "delta_r": -1827.0000000003783
+  },
+  {
+   "name": "per_person_group_surcharge",
+   "label": "Group Surcharge (+EUR150 flat)",
+   "welfare": 301.77839044553525,
+   "revenue": 94877.66666666696,
+   "experience_quality": 2.882476449006069,
+   "delta_w": 8.574670940919987,
+   "delta_r": 1162.9999999996508
+  },
+  {
+   "name": "rama",
+   "label": "RAMA (Reservation-Anchored Masterpiece Access)",
+   "welfare": 296.70662720986604,
+   "revenue": 104195.0000000014,
+   "experience_quality": 2.7984549091604185,
+   "delta_w": 3.5029077052507773,
+   "delta_r": 10480.333333334085
+  },
+  {
+   "name": "timed_entry",
+   "label": "Timed Entry",
+   "welfare": 295.53566506550703,
+   "revenue": 96211.00000000057,
+   "experience_quality": 2.9000979316940856,
+   "delta_w": 2.331945560891768,
+   "delta_r": 2496.3333333332557
+  },
+  {
+   "name": "baseline",
+   "label": "Status Quo (baseline)",
+   "welfare": 293.20371950461526,
+   "revenue": 93714.66666666731,
+   "experience_quality": 2.921719928957576,
+   "delta_w": 0.0,
+   "delta_r": 0.0
+  },
+  {
+   "name": "tour_group_cap",
+   "label": "Tour Group Cap (10)",
+   "welfare": 291.49074752491777,
+   "revenue": 95942.0,
+   "experience_quality": 2.914383948099967,
+   "delta_w": -1.7129719796974996,
+   "delta_r": 2227.333333332688
+  },
+  {
+   "name": "resident_annual_pass",
+   "label": "Expanded Annual Pass Program",
+   "welfare": 283.17155474682517,
+   "revenue": 96343.66666666762,
+   "experience_quality": 2.9097087946149935,
+   "delta_w": -10.032164757790099,
+   "delta_r": 2629.0000000003056
+  },
+  {
+   "name": "dynamic_pricing",
+   "label": "Dynamic Pricing (peak surcharge)",
+   "welfare": 276.1927857171665,
+   "revenue": 91745.33333333372,
+   "experience_quality": 2.90713918783068,
+   "delta_w": -17.010933787448778,
+   "delta_r": -1969.3333333335904
+  }
+ ]
 }

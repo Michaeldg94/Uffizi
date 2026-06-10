@@ -116,6 +116,28 @@ class VisitorProfile:
     trail_name: str | None = None
     segment: str = "A"  # visitor segment label (A, B, or 6-segment names)
     time_budget_override: int | None = None  # overrides slot-based duration if set
+    # Rooms where this visitor "stops" rather than transits. Used by the
+    # crowd-feedback dwell adjustment in the simulator. Instagram tourists
+    # have a small set (masterpieces + Panoramic Terrace). Standard tourists
+    # add the Tribune and Caravaggio. Art lovers stop at any room of
+    # personal interest; the field defaults to an empty set since their
+    # dwell is driven by the importance vector instead.
+    magnet_rooms: frozenset[str] = frozenset()
+    # Hard per-room dwell targets (room_id -> minutes). When the visitor
+    # enters a target room, the simulator overrides the natural stay
+    # decay: stay until time_in_room reaches the target, then move.
+    # Empty dict means use the magnetism-based decay only.
+    magnet_dwell_target: dict = None
+    # Fast-transit: visitor blitzes through non-magnet rooms, performing
+    # multiple room transitions per simulated minute. Matches the small
+    # physical scale of the Uffizi: a corridor traversal that the
+    # discrete simulator would otherwise spend 10+ minutes on.
+    fast_transit: bool = False
+    # Additive dwell floor (minutes of magnetism-equivalent) applied in the
+    # stay-probability decay. Art lovers carry a positive floor so they
+    # linger even in low-magnetism minor rooms; Instagram and Standard
+    # tourists leave it at zero and walk those rooms fast.
+    dwell_floor: float = 0.0
 
 
 # =============================================================================
@@ -232,6 +254,23 @@ def sample_type_a_profile(
         # Trail rooms get a +2.0 importance boost. [assumption]
         imp = np.clip(imp + 2.0 * trail_mask, 0.5, 10.0)
 
+    # Masterpiece dwell targets are identical across all profiles because
+    # the slot gate caps everyone at the same time there (10 min). The art
+    # lover's extra time comes from a long visit budget and a dwell floor
+    # that makes them linger in the NON-masterpiece rooms (per their noisy
+    # importance vector), where rushed tourists do not. [user testimony]
+    art_lover_dwell_target = {
+        "A11": 10,
+        "A12": 1,
+        "A35": 10,
+        "A38": 10,
+        "PANORAMIC_TERRACE": 15,  # quick view on the way down, not a long selfie stop
+    }
+    # Art lovers can spend most of the day in the museum. They go through
+    # the whole second floor and then the whole first floor (B, C and the
+    # 16th-century D rooms) before exiting via the Magliabechi staircase.
+    budget = int(rng.integers(config.ART_LOVER_VISIT_BUDGET[0],
+                              config.ART_LOVER_VISIT_BUDGET[1] + 1))
     return VisitorProfile(
         name="A",
         crowd_alpha=config.TYPE_A_CROWD_ALPHA,
@@ -241,6 +280,11 @@ def sample_type_a_profile(
         anti_crowd_bonus=config.TYPE_A_ANTI_CROWD_BONUS,
         importance_vector=imp,
         trail_name=trail_name,
+        segment="art_lover",
+        time_budget_override=budget,
+        magnet_rooms=frozenset(),  # art lovers stop wherever their personal importance pulls them
+        magnet_dwell_target=art_lover_dwell_target,
+        dwell_floor=config.ART_LOVER_DWELL_FLOOR,
     )
 
 
@@ -249,7 +293,7 @@ def sample_type_a_profile(
 # =============================================================================
 
 
-def sample_type_b_profile(rng: np.random.Generator) -> VisitorProfile:  # noqa: ARG001
+def sample_type_b_profile(rng: np.random.Generator) -> VisitorProfile:
     """Return the deterministic checklist-style Type-B ("checkbox tourist") profile.
 
     Type B visitors are the primary source of congestion at magnet rooms
@@ -293,6 +337,24 @@ def sample_type_b_profile(rng: np.random.Generator) -> VisitorProfile:  # noqa: 
     for room in config.TYPE_B_MAGNET_ROOMS:
         base[config.ROOM_TO_IDX[room]] = config.TYPE_B_MAGNET_IMPORTANCE  # 9.5 for magnet rooms
 
+    # Masterpiece dwell targets identical to IG so all visitor types
+    # spend the SAME time at each masterpiece (5 min A11 + 5 min A12 =
+    # 10 min Botticelli, 10 min Leonardo, 10 min Raphael). This makes
+    # the slot cycle synchronous across visitor types - Spring and
+    # Venus track identically because everyone flushes A11 -> A12 at
+    # the same minute. [user testimony]
+    standard_dwell_target = {
+        "A11": 10,
+        "A12": 1,
+        "A35": 10,
+        "A38": 10,
+        "PANORAMIC_TERRACE": 10,  # quick view on the way down, not a long selfie stop
+    }
+    # The standard tourist spends a half-to-full afternoon: the whole
+    # second floor, then a fast pass of the first floor (Self-Portraits,
+    # the 16th-century corridor) ending at Caravaggio, out via Magliabechi.
+    budget = int(rng.integers(config.STANDARD_VISIT_BUDGET[0],
+                              config.STANDARD_VISIT_BUDGET[1] + 1))
     return VisitorProfile(
         name="B",
         crowd_alpha=config.TYPE_B_CROWD_ALPHA,        # 0.5: nearly crowd-indifferent
@@ -302,6 +364,84 @@ def sample_type_b_profile(rng: np.random.Generator) -> VisitorProfile:  # noqa: 
         anti_crowd_bonus=config.TYPE_B_ANTI_CROWD_BONUS,     # 0.0: ignores crowd signals
         importance_vector=base,
         trail_name=None,  # Type B never accepts alternative trails
+        segment="standard",
+        time_budget_override=budget,
+        magnet_rooms=frozenset(config.STANDARD_MAGNET_ROOMS),
+        magnet_dwell_target=standard_dwell_target,
+    )
+
+
+# =============================================================================
+# Instagram tourist profile (selfie-driven, 30-60 min visits)
+# =============================================================================
+
+
+def sample_instagram_profile(rng: np.random.Generator) -> VisitorProfile:
+    """Sample an Instagram-tourist profile (30-60 min visit, masterpieces only).
+
+    The majority of real Uffizi visitors. Drives straight from the entrance
+    to Botticelli, then Leonardo and Raphael/Michelangelo, then up to the
+    panoramic terrace for selfies and a drink, then out via Lanzi. Does not
+    visit Tribune, the forced 15th-century chain, the U-loop, the dead-end
+    side rooms, or anything on the 1st floor besides what is on the way out.
+
+    Behavioral parameters are tuned for very strict route adherence and
+    fast pass-through of non-magnet rooms:
+      - route_bias 0.95: the recommended route is followed nearly always
+      - dwell_multiplier 0.2: minimal time in non-magnet rooms
+      - anti_crowd_bonus 0.0: ignores crowds (they expect them)
+      - magnet_rooms = {A11, A12, A35, A38, PANORAMIC_TERRACE}
+      - time_budget sampled uniformly in [30, 60] min
+
+    The importance vector is bimodal: 0.3 background, 10.0 on magnets,
+    making the importance pull effectively zero everywhere except the
+    Instagram destinations.
+    """
+
+    # Bimodal importance: nearly zero background, full pull on magnets.
+    imp = np.full(config.N_ROOMS, 0.3, dtype=float)
+    for room in config.INSTAGRAM_MAGNET_ROOMS:
+        if room in config.ROOM_TO_IDX:
+            imp[config.ROOM_TO_IDX[room]] = 10.0
+
+    # 60-90 minute visit. The IG tourist blitzes from entrance to the
+    # four masterpieces (10 min each at A11+A12, A35, A38) and up to
+    # the terrace (30 min). Fast-transit through non-magnet rooms
+    # (multiple room transitions per simulated minute) makes the
+    # walking essentially free, matching the small physical footprint
+    # of the Uffizi. [user testimony]
+    budget = int(rng.integers(config.INSTAGRAM_VISIT_BUDGET[0],
+                              config.INSTAGRAM_VISIT_BUDGET[1] + 1))
+
+    # Per-room dwell targets. Bott zone is modeled as A11 alone holding
+    # the visitor the full 10-min slot (Spring + Venus paintings hang in
+    # both rooms, but the experience is one continuous "Botticelli
+    # moment"). A12 is a 1-min walk-through. This lets A11 saturate at
+    # cap throughout the day rather than oscillate 0->55 in the slot
+    # cycle. For chart symmetry, A12's occupancy series is replaced
+    # with A11's at plot time.
+    dwell_target = {
+        "A11": 10,  # Botticelli zone (Spring + Venus together)
+        "A12": 1,   # walk-through room
+        "A35": 10,  # Leonardo
+        "A38": 10,  # Raphael / Michelangelo
+        "PANORAMIC_TERRACE": 30,
+    }
+
+    return VisitorProfile(
+        name="B",                  # treated as non-Type-A for legacy code paths
+        crowd_alpha=0.3,           # almost zero crowd sensitivity
+        route_bias=0.95,           # strict route adherence
+        backtrack_prob=0.01,       # almost never backtracks
+        dwell_multiplier=0.2,      # very fast in non-magnet rooms
+        anti_crowd_bonus=0.0,      # expects crowds, doesn't avoid
+        importance_vector=imp,
+        trail_name=None,
+        segment="instagram",
+        time_budget_override=budget,
+        magnet_rooms=frozenset(config.INSTAGRAM_MAGNET_ROOMS),
+        magnet_dwell_target=dwell_target,
+        fast_transit=True,
     )
 
 
@@ -347,12 +487,24 @@ def sample_profile(
         (deterministic, checklist-style) profile.
     """
 
-    if rng.random() < type_a_fraction:  # coin flip for visitor type
+    # Three-tier sampling: Art Lover (10%), Standard tourist (30%),
+    # Instagram tourist (60%). The Standard / Instagram split sits inside
+    # what legacy code treats as "Type B"; both have ``name="B"`` but
+    # differ in route_bias, dwell, time budget, and magnet rooms.
+    draw = rng.random()
+    if draw < type_a_fraction:
         return sample_type_a_profile(
             rng,
             heterogeneity_scale=heterogeneity_scale,
             trail_acceptance_prob=trail_acceptance_prob,
         )
+    # Within the non-Art-Lover pool, decide Instagram vs Standard.
+    # Default mix: 60% Instagram, 30% Standard out of 90% total Type B.
+    # Conditional probability of Instagram given Type B = 0.60 / 0.90.
+    nonA_total = max(1e-6, 1.0 - type_a_fraction)
+    instagram_conditional = config.INSTAGRAM_FRACTION / nonA_total
+    if rng.random() < instagram_conditional:
+        return sample_instagram_profile(rng)
     return sample_type_b_profile(rng)
 
 

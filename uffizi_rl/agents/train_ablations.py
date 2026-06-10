@@ -130,6 +130,8 @@ def _evaluate(model, env: UffiziEnv, episodes: int = 4) -> tuple[float, float]:
 def train_ablations(
     timesteps: int = config.ABLATION_TIMESTEPS_DEFAULT,
     seed: int = config.DEFAULT_SEED,
+    eval_episodes: int = 50,
+    save_dir: str | None = None,
 ) -> list[AblationResult]:
     """Train (or smoke-test) vanilla PPO and DQN ablations without action masking.
 
@@ -161,12 +163,12 @@ def train_ablations(
             # invalid_action_penalty=-0.4: the env returns this reward
             # whenever the agent selects a move that violates graph
             # adjacency.  This is what unmasked agents must learn to avoid.
-            env = UffiziEnv(seed=seed + i, invalid_action_penalty=-0.4, episode_minutes=180)
+            env = UffiziEnv(seed=seed + i, invalid_action_penalty=-0.4, episode_minutes=config.MUSEUM_OPEN_MINUTES)
             model = _RandomModel(env, seed=seed + i)
             # Evaluate on a separate env (seed + 100 + i) to avoid data leakage.
             mean_r, std_r = _evaluate(
                 model,
-                UffiziEnv(seed=seed + 100 + i, episode_minutes=180),
+                UffiziEnv(seed=seed + 100 + i, episode_minutes=config.MUSEUM_OPEN_MINUTES),
                 episodes=3,
             )
             results.append(
@@ -197,65 +199,88 @@ def train_ablations(
         # move.  This is deliberately moderate; too harsh and the agent
         # learns to stay in place (safe but useless), too mild and it
         # ignores the constraint.  [assumption]
-        env = UffiziEnv(seed=seed + i, invalid_action_penalty=-0.4, episode_minutes=180)
+        env = UffiziEnv(seed=seed + i, invalid_action_penalty=-0.4, episode_minutes=config.MUSEUM_OPEN_MINUTES)
 
         if dep_ok and PPO is not None and DQN is not None:
             if name == "PPO":
-                # Vanilla PPO (no masking, no curriculum).
-                # learning_rate 3e-4: SB3 default, adequate for MLP policies.
-                # n_steps 512: shorter than MaskablePPO (2048) because there
-                #   is no parallel env; keeps memory usage low.
-                # n_epochs 5: fewer than MaskablePPO (8); without masking,
-                #   more epochs risk overfitting to noise from illegal moves.
-                # gamma 0.99: slightly lower than MaskablePPO (0.995) since
-                #   ablations use simpler hyperparameters as a baseline.
+                # Vanilla PPO baseline. Hyperparameters are matched to
+                # MaskablePPO (same LR schedule, n_steps, batch, n_epochs,
+                # gamma, gae_lambda, ent_coef, clip_range, net_arch) so the
+                # ONLY difference from the headline model is action masking
+                # (and the 3-stage curriculum, which is part of "our method").
+                # This makes the masked-vs-unmasked comparison apples-to-apples.
                 model = PPO(
                     "MlpPolicy",
                     env,
-                    learning_rate=3e-4,
-                    n_steps=512,
-                    batch_size=64,
-                    n_epochs=5,
-                    gamma=0.99,
+                    learning_rate=lambda progress: 1e-4 + 1e-4 * progress,
+                    n_steps=4096,
+                    batch_size=512,
+                    n_epochs=8,
+                    gamma=0.995,
+                    gae_lambda=0.98,
+                    ent_coef=0.01,  # match MaskablePPO (exploration to sweep all masterpieces)
+                    clip_range=0.2,
                     seed=seed + i,
-                    verbose=0,
+                    verbose=1,
+                    policy_kwargs={"net_arch": [256, 256]},
                 )
             else:
                 # Vanilla DQN (value-based, off-policy).
                 # learning_rate 2.5e-4: slightly lower than PPO; DQN is more
                 #   sensitive to learning rate because the value target is
                 #   non-stationary (moving Q-target). [assumption]
-                # buffer_size 50_000: replay buffer.  50k transitions is
-                #   sufficient for the ablation budget of 10k steps; larger
-                #   buffers waste memory without benefit at this scale.
-                # learning_starts 1_000: collect 1k transitions of random
-                #   exploration before the first gradient update, ensuring
-                #   the replay buffer has enough diversity. [assumption]
+                # buffer_size 200_000 and learning_starts 5_000 sized for the
+                # longer (up to 1M-step) budget; gamma 0.995 to match the
+                # long-horizon discounting used everywhere else. DQN is a
+                # value-based baseline, so it cannot share PPO's policy-
+                # gradient hyperparameters, this is a reasonable DQN at the
+                # same compute budget and same evaluation protocol.
                 model = DQN(
                     "MlpPolicy",
                     env,
                     learning_rate=2.5e-4,
-                    batch_size=64,
-                    buffer_size=50_000,
-                    learning_starts=1_000,
-                    gamma=0.99,
+                    batch_size=128,
+                    buffer_size=200_000,
+                    learning_starts=5_000,
+                    gamma=0.995,
                     seed=seed + i,
-                    verbose=0,
+                    verbose=1,
+                    policy_kwargs={"net_arch": [256, 256]},
                 )
 
-            model.learn(total_timesteps=int(timesteps))
+            if name == "PPO":
+                # Same 3-stage curriculum (easy -> full crowd) as MaskablePPO,
+                # via set_env between stages, so the ONLY difference from the
+                # headline model is action masking.
+                from uffizi_rl.agents.train_maskable_ppo import _curriculum_stages
+                for stage_idx, (stage_steps, env_kw) in enumerate(_curriculum_stages(int(timesteps))):
+                    model.set_env(UffiziEnv(seed=seed + i + 1000 * stage_idx,
+                                            invalid_action_penalty=-0.4, **env_kw))
+                    model.learn(total_timesteps=int(stage_steps),
+                                reset_num_timesteps=(stage_idx == 0))
+            else:
+                # DQN: value-based baseline, full-scale single phase (same
+                # budget and eval; the curriculum is a PPO-method choice).
+                model.learn(total_timesteps=int(timesteps))
         else:
             # stable-baselines3 not installed; use random fallback.
             model = _RandomModel(env, seed=seed + i)
 
-        # ---- Evaluate on a held-out environment ----------------------------
-        # Seed offset +100 ensures the evaluation NPC sequences differ from
-        # the training ones.
-        mean_r, std_r = _evaluate(
+        # ---- Evaluate with the SAME protocol as MaskablePPO ----------------
+        # Common-random-number eval over the same fixed crowds and the same
+        # number of episodes, so the ablation numbers are directly comparable
+        # to the headline model (not a different, noisier 4-episode estimate).
+        from uffizi_rl.agents.train_maskable_ppo import evaluate_policy
+        _m = evaluate_policy(
             model,
-            UffiziEnv(seed=seed + 100 + i, episode_minutes=180),
-            episodes=4,
+            UffiziEnv(seed=seed + 100 + i, episode_minutes=config.MUSEUM_OPEN_MINUTES),
+            n_episodes=eval_episodes,
         )
+        mean_r, std_r = _m["mean"], _m["std"]
+        if save_dir is not None and dep_ok:
+            from pathlib import Path as _Path
+            _Path(save_dir).mkdir(parents=True, exist_ok=True)
+            model.save(f"{save_dir}/{name.lower()}_ablation.zip")
         results.append(
             AblationResult(
                 algorithm=name if dep_ok else f"{name}_fallback_random",

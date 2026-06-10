@@ -1,0 +1,86 @@
+{
+  "description": "RL booking grid (the optimal individual agent): intervened (RAMA) vs matched no-intervention walk baseline, deterministic eval, seeds 900000-5",
+  "crowds": [
+    500,
+    2500,
+    5000
+  ],
+  "profiles": {
+    "art": {
+      "500": {
+        "baseline_points": 5111.7,
+        "intervened_points": 7113.2,
+        "pct_vs_baseline": 39.2,
+        "checkins_of_3": 3.0,
+        "lead_days_chosen": {
+          "7": 6
+        },
+        "entry_room": "A1",
+        "exit_count_of_6": 5,
+        "teleports": 0
+      },
+      "2500": {
+        "baseline_points": 4780.1,
+        "intervened_points": 6296.9,
+        "pct_vs_baseline": 31.7,
+        "checkins_of_3": 3.0,
+        "lead_days_chosen": {
+          "35": 6
+        },
+        "entry_room": "A1",
+        "exit_count_of_6": 1,
+        "teleports": 0
+      },
+      "5000": {
+        "baseline_points": 4009.5,
+        "intervened_points": 5646.0,
+        "pct_vs_baseline": 40.8,
+        "checkins_of_3": 3.0,
+        "lead_days_chosen": {
+          "35": 6
+        },
+        "entry_room": "A1",
+        "exit_count_of_6": 0,
+        "teleports": 0
+      }
+    },
+    "tourist": {
+      "500": {
+        "baseline_points": 2693.7,
+        "intervened_points": 3685.6,
+        "pct_vs_baseline": 36.8,
+        "checkins_of_3": 3.0,
+        "lead_days_chosen": {
+          "7": 6
+        },
+        "entry_room": "A1",
+        "exit_count_of_6": 6,
+        "teleports": 0
+      },
+      "2500": {
+        "baseline_points": 2707.7,
+        "intervened_points": 3694.8,
+        "pct_vs_baseline": 36.5,
+        "checkins_of_3": 3.0,
+        "lead_days_chosen": {
+          "7": 6
+        },
+        "entry_room": "A1",
+        "exit_count_of_6": 6,
+        "teleports": 0
+      },
+      "5000": {
+        "baseline_points": 2679.8,
+        "intervened_points": 3684.8,
+        "pct_vs_baseline": 37.5,
+        "checkins_of_3": 3.0,
+        "lead_days_chosen": {
+          "35": 6
+        },
+        "entry_room": "A1",
+        "exit_count_of_6": 6,
+        "teleports": 0
+      }
+    }
+  }
+}

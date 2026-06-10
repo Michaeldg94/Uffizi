@@ -1,0 +1,29 @@
+{
+  "timesteps": 500000,
+  "seeds": 3,
+  "maskable_ppo": {
+    "mean_episode_reward": 305.56739550894036,
+    "std_episode_reward": 55.50325779432175,
+    "per_seed": [
+      337.7359341831229,
+      337.48833907064443,
+      241.47791327305393
+    ]
+  },
+  "ablations": [
+    {
+      "algorithm": "PPO",
+      "timesteps": 10000,
+      "mean_episode_reward": 109.38772512760586,
+      "std_episode_reward": 18.24995899577768,
+      "dependency_available": true
+    },
+    {
+      "algorithm": "DQN",
+      "timesteps": 10000,
+      "mean_episode_reward": 144.65469720745995,
+      "std_episode_reward": 29.988672088448205,
+      "dependency_available": true
+    }
+  ]
+}

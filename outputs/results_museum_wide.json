@@ -1,0 +1,165 @@
+{
+  "seeds": [
+    900000,
+    900001,
+    900002
+  ],
+  "crowds": [
+    500,
+    2500,
+    5000
+  ],
+  "type_b_fraction": 0.9,
+  "cells": {
+    "base_500": {
+      "instagram": {
+        "completed": 238.33333333333334,
+        "welfare_mean": 571.4223256543758,
+        "welfare_total": 136238.6004093378,
+        "revenue": 4900.0
+      },
+      "standard": {
+        "completed": 239.66666666666666,
+        "welfare_mean": 330.4032474240228,
+        "welfare_total": 78775.26910569414,
+        "revenue": 5668.000000000004
+      },
+      "art_lover": {
+        "completed": 44.0,
+        "welfare_mean": 1417.9010104926144,
+        "welfare_total": 62242.345756273855,
+        "revenue": 974.0
+      },
+      "_all": {
+        "completed": 522.0,
+        "welfare_total": 277256.2152713059,
+        "revenue": 11541.999999999985
+      }
+    },
+    "intervened_500": {
+      "instagram": {
+        "completed": 298.3333333333333,
+        "welfare_mean": 565.1155680430273,
+        "welfare_total": 168583.77368583772,
+        "revenue": 6860.333333333333
+      },
+      "standard": {
+        "completed": 150.66666666666666,
+        "welfare_mean": 522.2823169494294,
+        "welfare_total": 78688.29512587002,
+        "revenue": 3266.3333333333335
+      },
+      "art_lover": {
+        "completed": 51.0,
+        "welfare_mean": 1885.5763843821005,
+        "welfare_total": 96234.66967100675,
+        "revenue": 1190.3333333333333
+      },
+      "_all": {
+        "completed": 500.0,
+        "welfare_total": 343506.73848271446,
+        "revenue": 11317.0
+      }
+    },
+    "base_2500": {
+      "instagram": {
+        "completed": 1257.3333333333333,
+        "welfare_mean": 447.8028764780333,
+        "welfare_total": 563013.736735849,
+        "revenue": 26674.0
+      },
+      "standard": {
+        "completed": 1066.3333333333333,
+        "welfare_mean": 286.73244159169593,
+        "welfare_total": 305459.04845025594,
+        "revenue": 25047.000000000087
+      },
+      "art_lover": {
+        "completed": 223.0,
+        "welfare_mean": 1066.455551179651,
+        "welfare_total": 237702.17182974596,
+        "revenue": 4882.666666666667
+      },
+      "_all": {
+        "completed": 2546.6666666666665,
+        "welfare_total": 1106174.9570158513,
+        "revenue": 56603.66666666639
+      }
+    },
+    "intervened_2500": {
+      "instagram": {
+        "completed": 1493.3333333333333,
+        "welfare_mean": 441.29649801880345,
+        "welfare_total": 658996.3476124164,
+        "revenue": 33957.0
+      },
+      "standard": {
+        "completed": 754.0,
+        "welfare_mean": 427.6408669383557,
+        "welfare_total": 322439.21536819683,
+        "revenue": 17011.666666666668
+      },
+      "art_lover": {
+        "completed": 252.66666666666666,
+        "welfare_mean": 1158.454666939476,
+        "welfare_total": 292609.6958190829,
+        "revenue": 5575.333333333333
+      },
+      "_all": {
+        "completed": 2500.0,
+        "welfare_total": 1274045.2587996947,
+        "revenue": 56544.0
+      }
+    },
+    "base_5000": {
+      "instagram": {
+        "completed": 2321.0,
+        "welfare_mean": 325.1370086302691,
+        "welfare_total": 754607.7041946612,
+        "revenue": 50262.0
+      },
+      "standard": {
+        "completed": 1678.0,
+        "welfare_mean": 240.46929111371455,
+        "welfare_total": 403445.7245814198,
+        "revenue": 38429.00000000009
+      },
+      "art_lover": {
+        "completed": 368.6666666666667,
+        "welfare_mean": 966.9675709781167,
+        "welfare_total": 356404.9813900809,
+        "revenue": 7811.0
+      },
+      "_all": {
+        "completed": 4367.666666666667,
+        "welfare_total": 1514458.4101661618,
+        "revenue": 96502.00000000047
+      }
+    },
+    "intervened_5000": {
+      "instagram": {
+        "completed": 2924.6666666666665,
+        "welfare_mean": 332.3045055971224,
+        "welfare_total": 971834.8752905894,
+        "revenue": 57205.333333333336
+      },
+      "standard": {
+        "completed": 1438.6666666666667,
+        "welfare_mean": 368.85912122916466,
+        "welfare_total": 530564.3333583158,
+        "revenue": 27927.0
+      },
+      "art_lover": {
+        "completed": 503.0,
+        "welfare_mean": 962.2796500431756,
+        "welfare_total": 484026.0873259257,
+        "revenue": 9660.0
+      },
+      "_all": {
+        "completed": 4866.333333333333,
+        "welfare_total": 1986425.2959748323,
+        "revenue": 94792.33333333333
+      }
+    }
+  }
+}

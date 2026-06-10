@@ -12,77 +12,54 @@
     "corridors_have_high_degree": true,
     "botticelli_forced_chain_ok": true,
     "all_rooms_reachable_from_entry": true,
+    "exit_reachable_from_all_galleries": true,
     "all_pass": true
   },
   "calibration_5_days": {
     "capacity_violations_mean": 0.0,
     "capacity_violations_std": 0.0,
-    "completed_visitors_mean": 4834.16,
-    "completed_visitors_std": 26.190323809080517,
-    "experience_engagement_depth_mean": 0.5642384468731112,
-    "experience_engagement_depth_std": 0.0030504988981395987,
-    "experience_intimacy_mean": 0.546437149698583,
-    "experience_intimacy_std": 0.020646337638690296,
-    "experience_narrative_coherence_mean": 0.035160887856088195,
-    "experience_narrative_coherence_std": 0.0022894630723787096,
-    "experience_quality_mean": 1.9673660190364353,
-    "experience_quality_std": 0.020547993554543745,
-    "experience_surprise_mean": 0.8215295346086525,
-    "experience_surprise_std": 0.0013259796456200458,
-    "mean_inside_mean": 808.2990894308944,
-    "mean_inside_std": 2.3761163864031962,
-    "peak_botticelli_density_mean": 1.629818181818182,
-    "peak_botticelli_density_std": 0.10895229288614158,
-    "peak_inside_mean": 900.0,
-    "peak_inside_std": 0.0,
-    "queue_peak_mean": 2411.96,
-    "queue_peak_std": 68.64310539571579,
+    "completed_visitors_mean": 4323.8,
+    "completed_visitors_std": 47.52578247646218,
+    "experience_engagement_depth_mean": 0.5265616533114895,
+    "experience_engagement_depth_std": 0.0017311021153693872,
+    "experience_intimacy_mean": 1.6698597321762332,
+    "experience_intimacy_std": 0.0033484170282125922,
+    "experience_narrative_coherence_mean": 0.02154606937570688,
+    "experience_narrative_coherence_std": 0.0017280065872662396,
+    "experience_quality_mean": 2.91341124044515,
+    "experience_quality_std": 0.0031682275701343525,
+    "experience_surprise_mean": 0.6954437855817209,
+    "experience_surprise_std": 0.00204975302961948,
+    "experienced_welfare_total_mean": 1529252.4604022265,
+    "experienced_welfare_total_std": 12686.949873968688,
+    "experienced_welfare_type_a_mean": 369747.1138657363,
+    "experienced_welfare_type_a_std": 15195.78477763179,
+    "experienced_welfare_type_b_mean": 1159505.3465364901,
+    "experienced_welfare_type_b_std": 6756.396995146571,
+    "mean_inside_mean": 799.1362601626016,
+    "mean_inside_std": 5.831429382493053,
+    "mean_welfare_per_attempted_mean": 131.5344433060265,
+    "mean_welfare_per_attempted_std": 90.29767811445964,
+    "n_attempted_mean": 15685.6,
+    "n_attempted_std": 8167.115543446168,
+    "peak_botticelli_density_mean": 2.0327272727272727,
+    "peak_botticelli_density_std": 0.18604185079689425,
+    "peak_inside_mean": 899.6,
+    "peak_inside_std": 0.5477225575051662,
+    "queue_peak_mean": 938.4,
+    "queue_peak_std": 95.15934005655987,
     "revenue_mean": 0.0,
     "revenue_std": 0.0,
-    "type_a_completed_mean": 1420.78,
-    "type_a_completed_std": 34.873116948650946,
-    "type_b_completed_mean": 3413.38,
-    "type_b_completed_std": 40.446432198044626,
-    "n_days": 50.0
+    "type_a_completed_mean": 327.0,
+    "type_a_completed_std": 21.72556098240043,
+    "type_b_completed_mean": 3996.8,
+    "type_b_completed_std": 50.28120921378085,
+    "n_days": 5.0
   },
   "env_random_rollout": {
-    "steps": 180,
-    "total_reward": 33.80694197082394,
-    "terminated": false,
-    "truncated": true
-  },
-  "top_avg_density_rooms": [
-    [
-      "A1",
-      2.0553658536585333
-    ],
-    [
-      "A17",
-      1.5788617886178868
-    ],
-    [
-      "A16",
-      1.382816963304767
-    ],
-    [
-      "A15",
-      1.163558106169299
-    ],
-    [
-      "A8",
-      1.1102564102564112
-    ],
-    [
-      "A10",
-      1.1036954915003703
-    ],
-    [
-      "A21",
-      1.014560236511455
-    ],
-    [
-      "A12",
-      1.006977087952698
-    ]
-  ]
+    "steps": 14,
+    "total_reward": 35.687289882535616,
+    "terminated": true,
+    "truncated": false
+  }
 }

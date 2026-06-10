@@ -1,15 +1,19 @@
 """SCRIPT 05: Intervention evaluation and portfolio optimization (Phase 6).
 
-Evaluates the 30 curated museum management interventions by activating
-them one at a time in the crowd simulator and measuring welfare,
-revenue, peak Botticelli density, and experience quality. Then runs
-greedy forward selection + 1-opt local search to find the best
+Evaluates the curated Pigovian / common-pool-governance interventions
+by activating them one at a time in the crowd simulator and measuring
+welfare (= appreciation minus peak-masterpiece-congestion externality
+cost), revenue, peak Botticelli density, and experience quality. Then
+runs greedy forward selection + 1-opt local search to find the best
 portfolio.
 
-Key finding: the optimal strategy is to give visitors reasons to go
-to empty rooms (Last-Hour Locals, Lunch Free Entry, Resident Annual
-Pass) rather than to restrict access to crowded rooms (which hurts
-revenue).
+The catalog has been filtered to externality-targeting interventions
+only: those that tax the congestion externality (group surcharge),
+cap the behavior that creates it (group cap, slot cap, timed entry,
+quiet hours), or redistribute demand away from the four masterpiece
+rooms during peak hours. Non-Pigovian "be nice to locals" interventions
+(Last-Hour Locals, Resident Annual Pass, Lunch Free Entry, etc.) have
+been removed because they do not reduce peak masterpiece density.
 
 Run AFTER 04. Writes:
   outputs/05_interventions.json
@@ -39,7 +43,7 @@ from uffizi_rl.pipeline._paths import ensure_outputs_dir  # noqa: E402
 
 
 def main() -> None:
-    """Evaluate all 30 curated interventions and find the best portfolio."""
+    """Evaluate each curated intervention and find the best portfolio."""
 
     output_dir = ensure_outputs_dir()
 
@@ -65,7 +69,7 @@ def main() -> None:
             "peak_botticelli_density": m["peak_botticelli_density"],
             "occupancy_gini": m["occupancy_gini"],
         })
-    rows.append({"intervention": "All 30 Combined", **{
+    rows.append({"intervention": "All Interventions Combined", **{
         k: v for k, v in simulate_day_metrics(seed=seed, **common, **combined_intervention_kwargs()).items()
         if k in {"total_welfare", "revenue", "peak_botticelli_density", "occupancy_gini"}
     }})
@@ -73,7 +77,7 @@ def main() -> None:
     baseline_w = rows[0]["total_welfare"]
     baseline_r = rows[0]["revenue"]
     print(f"  Baseline: welfare={baseline_w:.0f}, revenue={baseline_r:.0f}")
-    print(f"  All 30: welfare={rows[-1]['total_welfare']:.0f} ({rows[-1]['total_welfare']-baseline_w:+.0f}), "
+    print(f"  All combined: welfare={rows[-1]['total_welfare']:.0f} ({rows[-1]['total_welfare']-baseline_w:+.0f}), "
           f"revenue={rows[-1]['revenue']:.0f} ({rows[-1]['revenue']-baseline_r:+.0f})")
 
     print("[2/3] Greedy + local-search portfolio optimization")
