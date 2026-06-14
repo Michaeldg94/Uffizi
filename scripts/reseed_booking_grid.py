@@ -82,6 +82,17 @@ MODELS = Path("outputs/models/seeds")
 OUTDIR = Path("outputs/seeds")
 ALL_ARMS = ["ppo_base", "dqn_base", "mppo_int", "ppo_int", "dqn_int"]
 
+# The committed seed-42 models live in outputs/models/newenv/ under their pipeline names.
+# --eval-existing scores these (no training) to produce the canonical first-seed file.
+NEWENV_DIR = Path("outputs/models/newenv")
+NEWENV_STEM = {
+    "ppo_base": lambda p, c: f"opt_{'ArtWalk' if p == 'art' else 'TouristWalk'}_{c}",
+    "dqn_base": lambda p, c: f"dqn_base_{p}_{c}",
+    "mppo_int": lambda p, c: f"ramabook_{p}_{c}",
+    "ppo_int":  lambda p, c: f"ppo_book_{p}_{c}",
+    "dqn_int":  lambda p, c: f"dqn_book_{p}_{c}",
+}
+
 
 def baseline_env(profile: str, seed: int, crowd: int):
     """PlannedRouteEnv walk, no interventions; tourist gets recognition taste.
@@ -154,6 +165,14 @@ def train_arm(arm: str, profile: str, crowd: int, seed: int, ts: int):
     return model
 
 
+def load_existing(arm: str, profile: str, crowd: int):
+    """Load the committed seed-42 model for this cell from outputs/models/newenv/."""
+    path = NEWENV_DIR / f"{NEWENV_STEM[arm](profile, crowd)}.zip"
+    if not path.exists():
+        raise SystemExit(f"missing committed model {path} (needed for --eval-existing)")
+    return LOADERS[arm].load(path)
+
+
 def eval_base(profile: str, crowd: int, model) -> dict:
     """Deterministic eval, no interventions (pipeline 10 eval_baseline)."""
     R = []
@@ -218,24 +237,30 @@ def main():
                     help="Intervened-arm budget (mppo_int/ppo_int/dqn_int). Default 100000 = pipelines 08/09.")
     ap.add_argument("--base-ts", type=int, default=DEFAULT_BASE_TS,
                     help="Baseline-arm budget (ppo_base/dqn_base). Default 150000 = pipelines 07/09.")
+    ap.add_argument("--eval-existing", action="store_true",
+                    help="Score the committed seed-42 models in outputs/models/newenv/ (no training). "
+                         "Writes the canonical first-seed file results_rl_booking_seed42.json.")
     args = ap.parse_args()
 
     MODELS.mkdir(parents=True, exist_ok=True)
     OUTDIR.mkdir(parents=True, exist_ok=True)
     arms = [a for a in ALL_ARMS if a in args.arms]      # keep canonical order
+    seed_label = config.DEFAULT_SEED if args.eval_existing else args.seed
 
-    print(f"=== RESEED matrix | train_seed={args.seed} | eval CRN 900000..905 "
-          f"| arms={arms} | base_ts={args.base_ts} ts={args.ts} ===", flush=True)
+    mode = ("eval-existing (committed seed-42 models, no training)" if args.eval_existing
+            else f"train_seed={args.seed} | base_ts={args.base_ts} ts={args.ts}")
+    print(f"=== RESEED matrix | {mode} | eval CRN 900000..905 | arms={arms} ===", flush=True)
 
     results = {
         "description": ("Full booking algorithm matrix retrained under one training seed and evaluated "
                         "deterministically on the fixed CRN crowds (900000..905). One file per training "
                         "seed; average across files with scripts/average_seed_runs.py. Headline grid = "
                         "mppo_int (intervened) vs ppo_base (baseline)."),
-        "train_seed": args.seed,
+        "train_seed": seed_label,
         "eval_crn_seeds": list(EVAL_SEEDS),
         "crowds": args.crowds,
         "arms": arms,
+        "from_committed_models": bool(args.eval_existing),
         "profiles": {},
     }
     for profile in args.profiles:
@@ -244,8 +269,11 @@ def main():
         for c in args.crowds:
             cell = {"arms": {}}
             for arm in arms:
-                ts = args.base_ts if KIND[arm] == "base" else args.ts
-                model = train_arm(arm, profile, c, args.seed, ts)
+                if args.eval_existing:
+                    model = load_existing(arm, profile, c)
+                else:
+                    ts = args.base_ts if KIND[arm] == "base" else args.ts
+                    model = train_arm(arm, profile, c, args.seed, ts)
                 m = (eval_base(profile, c, model) if KIND[arm] == "base"
                      else eval_int(profile, c, model, MASKED.get(arm, False)))
                 cell["arms"][arm] = m
@@ -260,7 +288,7 @@ def main():
                 cell["checkins_of_3"] = cell["arms"]["mppo_int"]["checkins_of_3"]
             results["profiles"][profile][str(c)] = cell
 
-    out = OUTDIR / f"results_rl_booking_seed{args.seed}.json"
+    out = OUTDIR / f"results_rl_booking_seed{seed_label}.json"
     out.write_text(json.dumps(results, indent=2))
     print(f"\n  wrote {out}", flush=True)
     print("=== DONE ===", flush=True)
