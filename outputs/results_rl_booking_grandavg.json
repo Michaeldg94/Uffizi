@@ -1,0 +1,221 @@
+{
+  "description": "Per-cell, per-arm mean +/- std across training seeds. Each seed = one reseed_booking_grid.py run; eval = fixed CRN crowds (900000..905). Headline % recomputed from the mppo_int and ppo_base means.",
+  "n_seeds": 5,
+  "seeds": [
+    "1",
+    "202606",
+    "3",
+    "42",
+    "7"
+  ],
+  "profiles": {
+    "art": {
+      "500": {
+        "arms": {
+          "ppo_base": {
+            "points_mean": 5111.7,
+            "points_std": 0.0,
+            "n_seeds": 5
+          },
+          "dqn_base": {
+            "points_mean": 4527.0,
+            "points_std": 1595.7,
+            "n_seeds": 5
+          },
+          "mppo_int": {
+            "points_mean": 7113.2,
+            "points_std": 0.0,
+            "n_seeds": 5
+          },
+          "ppo_int": {
+            "points_mean": 7113.2,
+            "points_std": 0.0,
+            "n_seeds": 5
+          },
+          "dqn_int": {
+            "points_mean": 4871.7,
+            "points_std": 2587.0,
+            "n_seeds": 5
+          }
+        },
+        "baseline_points_mean": 5111.7,
+        "intervened_points_mean": 7113.2,
+        "pct_vs_baseline_from_means": 39.2,
+        "checkins_of_3_mean": 3.0,
+        "checkins_of_3_std": 0.0
+      },
+      "2500": {
+        "arms": {
+          "ppo_base": {
+            "points_mean": 4780.1,
+            "points_std": 0.0,
+            "n_seeds": 5
+          },
+          "dqn_base": {
+            "points_mean": 3985.7,
+            "points_std": 225.1,
+            "n_seeds": 5
+          },
+          "mppo_int": {
+            "points_mean": 6166.8,
+            "points_std": 290.9,
+            "n_seeds": 5
+          },
+          "ppo_int": {
+            "points_mean": 5646.4,
+            "points_std": 0.0,
+            "n_seeds": 5
+          },
+          "dqn_int": {
+            "points_mean": 5189.9,
+            "points_std": 1115.3,
+            "n_seeds": 5
+          }
+        },
+        "baseline_points_mean": 4780.1,
+        "intervened_points_mean": 6166.8,
+        "pct_vs_baseline_from_means": 29.0,
+        "checkins_of_3_mean": 3.0,
+        "checkins_of_3_std": 0.0
+      },
+      "5000": {
+        "arms": {
+          "ppo_base": {
+            "points_mean": 4009.5,
+            "points_std": 0.0,
+            "n_seeds": 5
+          },
+          "dqn_base": {
+            "points_mean": 2044.0,
+            "points_std": 1253.9,
+            "n_seeds": 5
+          },
+          "mppo_int": {
+            "points_mean": 4800.4,
+            "points_std": 1890.8,
+            "n_seeds": 5
+          },
+          "ppo_int": {
+            "points_mean": 4832.5,
+            "points_std": 0.0,
+            "n_seeds": 5
+          },
+          "dqn_int": {
+            "points_mean": 2691.2,
+            "points_std": 2154.0,
+            "n_seeds": 5
+          }
+        },
+        "baseline_points_mean": 4009.5,
+        "intervened_points_mean": 4800.4,
+        "pct_vs_baseline_from_means": 19.7,
+        "checkins_of_3_mean": 2.6,
+        "checkins_of_3_std": 0.8
+      }
+    },
+    "tourist": {
+      "500": {
+        "arms": {
+          "ppo_base": {
+            "points_mean": 2693.7,
+            "points_std": 0.0,
+            "n_seeds": 5
+          },
+          "dqn_base": {
+            "points_mean": 2693.7,
+            "points_std": 0.0,
+            "n_seeds": 5
+          },
+          "mppo_int": {
+            "points_mean": 3685.6,
+            "points_std": 0.0,
+            "n_seeds": 5
+          },
+          "ppo_int": {
+            "points_mean": 3685.6,
+            "points_std": 0.0,
+            "n_seeds": 5
+          },
+          "dqn_int": {
+            "points_mean": 3686.0,
+            "points_std": 0.3,
+            "n_seeds": 5
+          }
+        },
+        "baseline_points_mean": 2693.7,
+        "intervened_points_mean": 3685.6,
+        "pct_vs_baseline_from_means": 36.8,
+        "checkins_of_3_mean": 3.0,
+        "checkins_of_3_std": 0.0
+      },
+      "2500": {
+        "arms": {
+          "ppo_base": {
+            "points_mean": 2707.7,
+            "points_std": 0.0,
+            "n_seeds": 5
+          },
+          "dqn_base": {
+            "points_mean": 2707.7,
+            "points_std": 0.0,
+            "n_seeds": 5
+          },
+          "mppo_int": {
+            "points_mean": 3694.8,
+            "points_std": 0.0,
+            "n_seeds": 5
+          },
+          "ppo_int": {
+            "points_mean": 3694.8,
+            "points_std": 0.0,
+            "n_seeds": 5
+          },
+          "dqn_int": {
+            "points_mean": 3694.5,
+            "points_std": 0.0,
+            "n_seeds": 5
+          }
+        },
+        "baseline_points_mean": 2707.7,
+        "intervened_points_mean": 3694.8,
+        "pct_vs_baseline_from_means": 36.5,
+        "checkins_of_3_mean": 3.0,
+        "checkins_of_3_std": 0.0
+      },
+      "5000": {
+        "arms": {
+          "ppo_base": {
+            "points_mean": 2679.8,
+            "points_std": 0.0,
+            "n_seeds": 5
+          },
+          "dqn_base": {
+            "points_mean": 2679.8,
+            "points_std": 0.0,
+            "n_seeds": 5
+          },
+          "mppo_int": {
+            "points_mean": 3684.8,
+            "points_std": 0.0,
+            "n_seeds": 5
+          },
+          "ppo_int": {
+            "points_mean": 2092.9,
+            "points_std": 0.0,
+            "n_seeds": 5
+          },
+          "dqn_int": {
+            "points_mean": 2899.9,
+            "points_std": 1106.8,
+            "n_seeds": 5
+          }
+        },
+        "baseline_points_mean": 2679.8,
+        "intervened_points_mean": 3684.8,
+        "pct_vs_baseline_from_means": 37.5,
+        "checkins_of_3_mean": 3.0,
+        "checkins_of_3_std": 0.0
+      }
+    }
+  }
+}

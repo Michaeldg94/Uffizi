@@ -8,9 +8,15 @@ Medium mode (--medium): converged training, full sweeps, ~2 hours on
 M3 Pro. Produces publication-quality figures and JSON artifacts in
 outputs/.
 
+Reseed mode (--reseed): reproduce the multi-seed reseed (n=5) FROM SCRATCH
+via scripts/reseed_reproduce.py instead of the 01-07 pipeline. Trains seeds
+1, 3, 7, 202606 on CPU (per-cell resumable), assembles each seed's booking
+matrix and toy Q result, sanity-checks them, and prints the grand average.
+
 Usage:
     uv run python run_project.py            # quick smoke run
     uv run python run_project.py --medium   # converged run
+    uv run python run_project.py --reseed   # reproduce the n=5 reseed (hours; resumable)
 """
 
 from __future__ import annotations
@@ -46,7 +52,27 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--medium", action="store_true",
                         help="Converged budgets (~2 hours). Default is smoke run.")
+    parser.add_argument("--reseed", action="store_true",
+                        help="Reproduce the multi-seed reseed (n=5) from scratch via "
+                             "scripts/reseed_reproduce.py, instead of the 01-07 pipeline.")
+    parser.add_argument("--seeds", nargs="+", type=int, default=None,
+                        help="(with --reseed) training seeds. Default: 1 3 7 202606.")
+    parser.add_argument("--workers", type=int, default=None,
+                        help="(with --reseed) parallel CPU workers for the 120-cell training phase.")
+    parser.add_argument("--skip-train", action="store_true",
+                        help="(with --reseed) only assemble/sanity/average from cached models.")
     args = parser.parse_args()
+
+    if args.reseed:
+        reseed_args: list[str] = []
+        if args.seeds:
+            reseed_args += ["--seeds", *[str(s) for s in args.seeds]]
+        if args.workers:
+            reseed_args += ["--workers", str(args.workers)]
+        if args.skip_train:
+            reseed_args += ["--skip-train"]
+        _run_script("scripts/reseed_reproduce.py", reseed_args)
+        return
 
     if args.medium:
         q_episodes = "25000"

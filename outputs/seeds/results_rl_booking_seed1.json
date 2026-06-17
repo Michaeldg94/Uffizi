@@ -1,0 +1,300 @@
+{
+  "description": "Full booking algorithm matrix retrained under one training seed and evaluated deterministically on the fixed CRN crowds (900000..905). One file per training seed; average across files with scripts/average_seed_runs.py. Headline grid = mppo_int (intervened) vs ppo_base (baseline).",
+  "train_seed": 1,
+  "eval_crn_seeds": [
+    900000,
+    900001,
+    900002,
+    900003,
+    900004,
+    900005
+  ],
+  "crowds": [
+    500,
+    2500,
+    5000
+  ],
+  "arms": [
+    "ppo_base",
+    "dqn_base",
+    "mppo_int",
+    "ppo_int",
+    "dqn_int"
+  ],
+  "from_committed_models": false,
+  "profiles": {
+    "art": {
+      "500": {
+        "arms": {
+          "ppo_base": {
+            "points": 5111.7
+          },
+          "dqn_base": {
+            "points": 1695.7
+          },
+          "mppo_int": {
+            "points": 7113.2,
+            "checkins_of_3": 3.0,
+            "lead_days_chosen": {
+              "7": 6
+            },
+            "entry_room": "A1",
+            "exit_count_of_6": 5,
+            "teleports": 0
+          },
+          "ppo_int": {
+            "points": 7113.2,
+            "checkins_of_3": 3.0,
+            "lead_days_chosen": {
+              "7": 6
+            },
+            "entry_room": "A1",
+            "exit_count_of_6": 5,
+            "teleports": 0
+          },
+          "dqn_int": {
+            "points": 1381.4,
+            "checkins_of_3": 1.0,
+            "lead_days_chosen": {
+              "7": 5,
+              "21": 1
+            },
+            "entry_room": "A1",
+            "exit_count_of_6": 0,
+            "teleports": 0
+          }
+        },
+        "baseline_points": 5111.7,
+        "intervened_points": 7113.2,
+        "pct_vs_baseline": 39.2,
+        "checkins_of_3": 3.0
+      },
+      "2500": {
+        "arms": {
+          "ppo_base": {
+            "points": 4780.1
+          },
+          "dqn_base": {
+            "points": 3981.3
+          },
+          "mppo_int": {
+            "points": 6296.9,
+            "checkins_of_3": 3.0,
+            "lead_days_chosen": {
+              "35": 6
+            },
+            "entry_room": "A1",
+            "exit_count_of_6": 1,
+            "teleports": 0
+          },
+          "ppo_int": {
+            "points": 5646.4,
+            "checkins_of_3": 3.0,
+            "lead_days_chosen": {
+              "7": 6
+            },
+            "entry_room": "A1",
+            "exit_count_of_6": 1,
+            "teleports": 0
+          },
+          "dqn_int": {
+            "points": 5227.2,
+            "checkins_of_3": 3.0,
+            "lead_days_chosen": {
+              "1": 2,
+              "7": 3,
+              "21": 1
+            },
+            "entry_room": "A1",
+            "exit_count_of_6": 1,
+            "teleports": 0
+          }
+        },
+        "baseline_points": 4780.1,
+        "intervened_points": 6296.9,
+        "pct_vs_baseline": 31.7,
+        "checkins_of_3": 3.0
+      },
+      "5000": {
+        "arms": {
+          "ppo_base": {
+            "points": 4009.5
+          },
+          "dqn_base": {
+            "points": 3430.3
+          },
+          "mppo_int": {
+            "points": 5646.0,
+            "checkins_of_3": 3.0,
+            "lead_days_chosen": {
+              "35": 6
+            },
+            "entry_room": "A1",
+            "exit_count_of_6": 0,
+            "teleports": 0
+          },
+          "ppo_int": {
+            "points": 4832.5,
+            "checkins_of_3": 3.0,
+            "lead_days_chosen": {
+              "7": 6
+            },
+            "entry_room": "A1",
+            "exit_count_of_6": 0,
+            "teleports": 0
+          },
+          "dqn_int": {
+            "points": 1013.5,
+            "checkins_of_3": 1.33,
+            "lead_days_chosen": {
+              "21": 3,
+              "7": 3
+            },
+            "entry_room": "A1",
+            "exit_count_of_6": 0,
+            "teleports": 0
+          }
+        },
+        "baseline_points": 4009.5,
+        "intervened_points": 5646.0,
+        "pct_vs_baseline": 40.8,
+        "checkins_of_3": 3.0
+      }
+    },
+    "tourist": {
+      "500": {
+        "arms": {
+          "ppo_base": {
+            "points": 2693.7
+          },
+          "dqn_base": {
+            "points": 2693.7
+          },
+          "mppo_int": {
+            "points": 3685.6,
+            "checkins_of_3": 3.0,
+            "lead_days_chosen": {
+              "7": 6
+            },
+            "entry_room": "A1",
+            "exit_count_of_6": 6,
+            "teleports": 0
+          },
+          "ppo_int": {
+            "points": 3685.6,
+            "checkins_of_3": 3.0,
+            "lead_days_chosen": {
+              "7": 6
+            },
+            "entry_room": "A1",
+            "exit_count_of_6": 6,
+            "teleports": 0
+          },
+          "dqn_int": {
+            "points": 3685.6,
+            "checkins_of_3": 3.0,
+            "lead_days_chosen": {
+              "21": 6
+            },
+            "entry_room": "A1",
+            "exit_count_of_6": 6,
+            "teleports": 0
+          }
+        },
+        "baseline_points": 2693.7,
+        "intervened_points": 3685.6,
+        "pct_vs_baseline": 36.8,
+        "checkins_of_3": 3.0
+      },
+      "2500": {
+        "arms": {
+          "ppo_base": {
+            "points": 2707.7
+          },
+          "dqn_base": {
+            "points": 2707.7
+          },
+          "mppo_int": {
+            "points": 3694.8,
+            "checkins_of_3": 3.0,
+            "lead_days_chosen": {
+              "7": 6
+            },
+            "entry_room": "A1",
+            "exit_count_of_6": 6,
+            "teleports": 0
+          },
+          "ppo_int": {
+            "points": 3694.8,
+            "checkins_of_3": 3.0,
+            "lead_days_chosen": {
+              "7": 6
+            },
+            "entry_room": "A1",
+            "exit_count_of_6": 6,
+            "teleports": 0
+          },
+          "dqn_int": {
+            "points": 3694.5,
+            "checkins_of_3": 3.0,
+            "lead_days_chosen": {
+              "35": 6
+            },
+            "entry_room": "A1",
+            "exit_count_of_6": 6,
+            "teleports": 0
+          }
+        },
+        "baseline_points": 2707.7,
+        "intervened_points": 3694.8,
+        "pct_vs_baseline": 36.5,
+        "checkins_of_3": 3.0
+      },
+      "5000": {
+        "arms": {
+          "ppo_base": {
+            "points": 2679.8
+          },
+          "dqn_base": {
+            "points": 2679.8
+          },
+          "mppo_int": {
+            "points": 3684.8,
+            "checkins_of_3": 3.0,
+            "lead_days_chosen": {
+              "21": 6
+            },
+            "entry_room": "A1",
+            "exit_count_of_6": 6,
+            "teleports": 0
+          },
+          "ppo_int": {
+            "points": 2092.9,
+            "checkins_of_3": 3.0,
+            "lead_days_chosen": {
+              "7": 6
+            },
+            "entry_room": "A1",
+            "exit_count_of_6": 6,
+            "teleports": 0
+          },
+          "dqn_int": {
+            "points": 1351.1,
+            "checkins_of_3": 2.67,
+            "lead_days_chosen": {
+              "7": 4,
+              "35": 2
+            },
+            "entry_room": "A1",
+            "exit_count_of_6": 5,
+            "teleports": 0
+          }
+        },
+        "baseline_points": 2679.8,
+        "intervened_points": 3684.8,
+        "pct_vs_baseline": 37.5,
+        "checkins_of_3": 3.0
+      }
+    }
+  }
+}

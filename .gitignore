@@ -31,3 +31,9 @@ dist/
 *.log
 *.toc
 *.out
+
+# Reseed: large seed-stamped model zips. Regenerate with `python run_project.py --reseed`.
+# The small per-seed result JSONs in outputs/seeds/ ARE committed; these zips are not.
+outputs/models/seeds/
+# Reseed: throwaway sequential-vs-parallel smoke-check workspace.
+outputs/checks/
