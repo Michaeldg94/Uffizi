@@ -171,6 +171,52 @@ max crowd stays the most seed-sensitive cell. Across all $5 \times 30 = 150$ arm
 \emph{zero} negative cell. MaskablePPO leads at low and medium crowd; at max crowd it is on par with
 the unmasked \code{ppo_int} ($4832$), and the DQN arms remain the most crowd-fragile.
 
+\clearpage
+\section{Full grand-average grid (all five arms)}
+
+The headline table in Section~5 compares \code{mppo_int} against \code{ppo_base}. For completeness,
+here is the \emph{complete} grand average --- all five algorithm arms, points as mean $\pm$ std over the
+five seeds $\{1, 3, 7, 42, 202606\}$ ($n=5$), each policy evaluated deterministically on the fixed CRN
+crowds \code{900000..900005}. Crowd \code{max} is 5000.
+
+\begin{center}
+\footnotesize
+\setlength{\tabcolsep}{5pt}
+\renewcommand{\arraystretch}{1.2}
+\begin{tabular}{llrrrrrr}
+\toprule
+profile & crowd & \code{ppo_base} & \code{dqn_base} & \code{mppo_int} & \code{ppo_int} & \code{dqn_int} & $n$ \\
+\midrule
+art     & 500  & $5112 \pm 0$ & $4527 \pm 1596$ & $7113 \pm 0$    & $7113 \pm 0$ & $4872 \pm 2587$ & 5 \\
+art     & 2500 & $4780 \pm 0$ & $3986 \pm 225$  & $6167 \pm 291$  & $5646 \pm 0$ & $5190 \pm 1115$ & 5 \\
+art     & max  & $4010 \pm 0$ & $2044 \pm 1254$ & $4800 \pm 1891$ & $4832 \pm 0$ & $2691 \pm 2154$ & 5 \\
+\addlinespace
+tourist & 500  & $2694 \pm 0$ & $2694 \pm 0$    & $3686 \pm 0$    & $3686 \pm 0$ & $3686 \pm 0$    & 5 \\
+tourist & 2500 & $2708 \pm 0$ & $2708 \pm 0$    & $3695 \pm 0$    & $3695 \pm 0$ & $3694 \pm 0$    & 5 \\
+tourist & max  & $2680 \pm 0$ & $2680 \pm 0$    & $3685 \pm 0$    & $2093 \pm 0$ & $2900 \pm 1107$ & 5 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent\textbf{How to read it.}
+\begin{itemize}
+  \item \textbf{Where the variance lives.} \code{ppo_base} and \emph{every} tourist arm have zero
+        spread --- they converge to the same policy regardless of training seed. All the seed
+        sensitivity is in the art-lover arms, and it grows with crowd.
+  \item \textbf{Most seed-fragile:} the DQN arms (\code{dqn_base}, \code{dqn_int}), with std up to
+        $\pm 2587$ --- consistent with DQN being crowd-fragile.
+  \item \textbf{The centerpiece:} \code{mppo_int} (MaskablePPO) is rock-solid at low/medium crowd
+        ($\pm 0$, $\pm 291$) and, after the seed-2 $\to$ 7 swap, recovers at max crowd to
+        $4800 \pm 1891$ with no negative cells.
+  \item \textbf{One exception to masking winning:} at art/max the unmasked \code{ppo_int}
+        ($4832 \pm 0$) edges \code{mppo_int} ($4800$) on the mean --- the single cell where masking
+        does not lead.
+\end{itemize}
+
+\noindent Source of record: \code{outputs/results_rl_booking_grandavg.json} (full per-arm grid) and
+\code{outputs/results_toy_grandavg.json} (the toy line).
+\clearpage
+
 \section{Two operator decisions (and why)}
 
 Both are correctness-neutral --- the Phase A2 gate empirically confirmed that neither changes the
@@ -202,6 +248,63 @@ Phase E (grand average). It pins CPU, is per-cell resumable (a re-run reuses cac
 from its own location (no hardcoded paths). The new scripts, the \code{run_project.py} wiring, the two
 docs, and the eight result JSONs are committed; the model zips and the throwaway smoke-check workspace
 (\code{outputs/checks/}) are \code{.gitignore}d.
+
+\section{Inventory of artifacts created}
+
+Everything the reseed work produced, so the repository is self-documenting. ``Committed'' means meant
+for git; the large model zips and per-run logs are deliberately \code{.gitignore}d. Sizes are from this
+run.
+
+\paragraph{New scripts (in \code{scripts/}).}
+\begin{itemize}
+  \item \code{reseed_reproduce.py} (167 lines) --- the portable one-command reproducer behind
+        \code{run_project.py --reseed}; runs Phases A--E and derives the repo root from its own location.
+  \item \code{phaseA2_seq_vs_par.sh} (53) and \code{phaseA2_compare.py} (49) --- the A2 gate: train the
+        four sampled cells sequentially and through the parallel path, then require an exact
+        canonical-JSON match.
+  \item \code{phaseB_train_120.sh} (43) --- Phase B, the 120-cell parallel CPU training pool.
+  \item \code{phaseB2_verify_coverage.py} (33) --- Phase B2, the exact-filename check of the 120 cached
+        model zips.
+  \item \code{phaseC_assemble.sh} (28) --- Phase C, the single-writer per-seed assembly.
+  \item \code{phaseD_sanity.py} (117) --- Phase D, validates every result file (valid JSON, no NaN/Inf,
+        6 cells $\times$ 5 arms, \code{mppo_int} check-ins in $[0,3]$).
+\end{itemize}
+
+\paragraph{Result files --- the committed deliverables.} Ten per-seed JSONs in \code{outputs/seeds/}
+(5 seeds $\times$ 2) plus two grand-average files:
+\begin{itemize}
+  \item \code{results_rl_booking_seed<s>.json} for \code{<s>} in $\{1, 3, 7, 42, 202606\}$
+        ($\approx$7.4\,KB each) --- the 30-cell booking matrix per seed (5 arms $\times$ 2 profiles
+        $\times$ 3 crowds, with points and \code{mppo_int} check-ins / lead-days).
+  \item \code{q_learning_seed<s>.json} for the same five seeds ($\approx$1.9\,MB each) --- the toy
+        tabular Q vs Double-Q result, including the full per-episode reward and length traces (hence
+        the size).
+  \item \code{outputs/results_rl_booking_grandavg.json} (5.7\,KB) --- per-cell, per-arm mean $\pm$ std
+        across the five seeds; and \code{outputs/results_toy_grandavg.json} (277\,B) --- the toy
+        Q / Double-Q mean $\pm$ std. Both report $n=5$, seeds $\{1, 3, 7, 42, 202606\}$.
+\end{itemize}
+
+\paragraph{Trained models --- build artifacts (NOT committed).} \code{outputs/models/seeds/} holds
+\textbf{120 seed-stamped model zips} ($\approx$50\,MB total; 30 each for seeds 1, 3, 7, 202606 ---
+seed 42's models live separately in \code{outputs/models/newenv/}). These are \code{.gitignore}d and
+regenerate from \code{run_project.py --reseed}; they are not handed off.
+
+\paragraph{Documentation (in \code{docs/}).}
+\begin{itemize}
+  \item \code{reseed_understanding.md} (+ compiled \code{reseed_understanding.pdf}) --- the
+        plan-understanding write-up; the Markdown is the source, the PDF is produced from it with pandoc.
+  \item \code{reseed_implementation_report.tex} (+ compiled \code{.pdf}) --- this report.
+  \item \code{reseed_teammate_prompt.md} --- the runbook, updated to the seed set
+        $\{1, 3, 7, 42, 202606\}$ and given a reproducibility step.
+\end{itemize}
+
+\paragraph{Configuration changes (committed).} \code{run_project.py} gained a \code{--reseed} mode
+(with \code{--seeds}, \code{--workers}, \code{--skip-train}); \code{.gitignore} now excludes
+\code{outputs/models/seeds/} and the throwaway \code{outputs/checks/} workspace.
+
+\paragraph{Run logs (NOT committed).} The phase wrappers wrote per-run logs under \code{outputs/}
+(e.g.\ \code{reseed_multiseed.log}, \code{reseed_seed7_202606.log}, \code{reseed_assembly_seed<s>.log},
+\code{phaseCDE_7_202606.log}) --- \code{.gitignore}d evidence of each run.
 
 \section{Guardrails honoured}
 
