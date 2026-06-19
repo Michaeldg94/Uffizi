@@ -280,9 +280,10 @@ $Q_A$ chooses the action; the \emp{other} table $Q_B$ scores it. At decision tim
 on the average $\tfrac12(Q_A+Q_B)$.
 \end{block}
 \vspace{0.2em}
-\emp{Honest result (next slides):} on this \textbf{deterministic} toy there is little
-maximisation bias to remove, so vanilla Q-learning slightly edges Double-Q. The
-variant earns its keep under noise, not here. Reporting both is the point.
+\emp{Honest result (next slides):} on this \textbf{deterministic} toy there is no
+maximisation bias to remove, so across 5 seeds vanilla and Double-Q come out
+\emp{statistically tied} ($83.3$ vs $83.1$, overlapping bands). The variant earns its
+keep under noise, not here. Reporting both, with error bars, is the point.
 \end{frame}
 
 \begin{frame}{Foundations Result I: Temporal Arbitrage Is Learned}
@@ -290,7 +291,7 @@ variant earns its keep under noise, not here. Reporting both is the point.
 \begin{columns}[T]
 \begin{column}{0.5\textwidth}\centering
 \includegraphics[width=\linewidth]{\fig{09_q_learning_curve.png}}\\
-\scriptsize \emp{Episode return climbs from $\sim$40 to $\sim$100 and converges. The band
+\scriptsize \emp{Episode return climbs from $\sim$40 to $\sim$85 and converges. The band
 is the 25-episode rolling 95\% CI.}
 \end{column}
 \begin{column}{0.5\textwidth}\centering
@@ -307,16 +308,15 @@ The agent is never told the crowd schedule. It discovers, by trial and error, th
 \begin{frame}{Foundations Result II: Beating Every Handcrafted Baseline}
 \footnotesize
 \centering
-\includegraphics[width=0.66\linewidth]{\fig{13_baseline_comparison.png}}
+\includegraphics[width=0.60\linewidth]{\fig{13_baseline_comparison.png}}
 \vspace{0.1em}
 \raggedright
 \begin{itemize}\setlength\itemsep{0pt}
-\item Q-learning (\good{100.5}) beats all five handcrafted policies, including
-      \code{peak\_avoidance} (70.6) and \code{greedy\_least\_crowded} (61.3).
-\item Double-Q (\warn{86.9}) trails vanilla here: nothing to de-bias on a deterministic
-      graph. The variant is a control, not a free lunch.
-\item \emp{Takeaway:} the learned timing strategy dominates every hand rule, the green
-      light to scale.
+\item Q-learning (\good{83.3 $\pm$ 3.8}) beats every hand rule by a wide margin: the best,
+      \code{random}, reaches only $\sim$35; the structured rules go negative.
+\item Double-Q (\warn{83.1 $\pm$ 3.7}) is \emp{statistically tied} with vanilla: no
+      maximisation bias to remove on a deterministic graph, so it neither helps nor hurts.
+\item \emp{Takeaway:} the learned timing dominates every hand rule across all 5 seeds.
 \end{itemize}
 \end{frame}
 
@@ -671,7 +671,8 @@ masterpieces secured at every crowd.}
 \vspace{0.2em}
 \raggedright
 \begin{itemize}\setlength\itemsep{1pt}
-\item Both profiles beat baseline: \good{+32\% to +41\%} (art), \good{+36\% to +38\%} (tourist).
+\item Both profiles beat baseline (means over 5 seeds): \good{+20\% to +39\%} (art),
+      \good{+36\% to +38\%} (tourist).
 \item Lead jumps \emp{7 $\to$ 35 days} as the day fills; booking \emp{late} at a packed
       museum is worse than not booking.
 \end{itemize}
@@ -696,12 +697,13 @@ neighbour (no teleports); all three masterpieces are hit inside their booked win
 \vspace{0.2em}
 \raggedright
 \begin{itemize}\setlength\itemsep{1pt}
-\item \emp{MaskablePPO} is the clear winner: stable, finds book-early, best at every crowd.
+\item \emp{MaskablePPO} is the clear winner: stable across seeds, finds book-early, best
+      or tied-best at every crowd.
 \item \emp{Masking is decisive where book-early matters:} at the packed tourist, unmasked
       PPO collapses to \bad{2093}, \emp{below} the no-booking baseline (2680), while
-      MaskablePPO holds \good{3685}. Unmasked PPO stalls at lead-7.
-\item \emp{DQN} is crowd-fragile and high-variance on the art lover (baseline
-      $5230\!\to\!1756$ as the crowd grows).
+      MaskablePPO holds \good{3685}, on every seed.
+\item \emp{DQN} is crowd-fragile and high-variance on the art lover: its baseline falls
+      $4527\!\to\!2044$ as the crowd grows, with seed std up to $\pm$2{,}600 (the wide error bars).
 \end{itemize}
 \end{frame}
 
@@ -945,7 +947,7 @@ misrepresent what was learned.}
 \item \emp{RL on top (the optimal visit).} Given that intervened world, the optimal
       art-lover and normal-tourist agents \emp{book early, and earlier when busier},
       secure all three masterpieces, and beat the no-intervention baseline by
-      \good{+32\% to +41\%} (art) and \good{+36\% to +38\%} (tourist).
+      \good{+20\% to +39\%} (art) and \good{+36\% to +38\%} (tourist), averaged over 5 seeds.
 \end{enumerate}
 \vspace{0.4em}
 \begin{center}
@@ -957,9 +959,10 @@ visitor shows exactly how to use the redesigned museum.}
 \begin{frame}{Limitations and What Is Next}
 \footnotesize
 \begin{itemize}\setlength\itemsep{3pt}
-\item \emp{Single-seed algorithm matrix.} The 30-cell comparison is one seed per cell;
-      DQN on the art lover is visibly high-variance and would need 3+ seeds to report a
-      mean with error bars.
+\item \emp{Five-seed algorithm matrix.} The 30-cell comparison is now averaged over 5
+      training seeds (mean $\pm$ std). This confirms DQN's high variance on the art lover,
+      and exposes that the art-lover / max-crowd MaskablePPO gain is itself high-variance:
+      4 of 5 seeds reach $\sim$+41\%, one collapses, so that cell averages \warn{+20\%} with a wide band.
 \item \emp{``Always books'' is a type assumption}, defensible for these profiles but a
       modelling choice, not a learned outcome. A richer model would let lead time and
       participation co-vary.

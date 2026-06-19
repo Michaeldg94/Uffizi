@@ -93,33 +93,59 @@ def _json(name):
 
 
 # ===========================================================================
-# Embedded RL results (deterministic eval, seeds 900000-5).
-# Booking grid: (baseline, intervened) points. Lead: MaskablePPO lead-days.
-# Algorithm matrix: points per algorithm. Source: final_grid_eval / algo_cell.
+# Embedded RL results: 5 training seeds {1,3,7,42,202606}, deterministic eval on
+# the fixed CRN crowds 900000-5. Values are mean (and std) ACROSS the training
+# seeds. Source: outputs/results_rl_booking_grandavg.json and
+# outputs/results_toy_grandavg.json (scripts/average_seed_runs.py).
 # ===========================================================================
 CROWDS = (500, 2500, 5000)
 CROWD_LABEL = {500: "quiet\n(500)", 2500: "busy\n(2500)", 5000: "packed\n(max)"}
+# Booking headline: (PPO baseline, MaskablePPO intervened) points, mean then std.
 BOOKING = {
-    "art":     {500: (5112, 7113), 2500: (4780, 6297), 5000: (4009, 5646)},
+    "art":     {500: (5112, 7113), 2500: (4780, 6167), 5000: (4010, 4800)},
     "tourist": {500: (2694, 3686), 2500: (2708, 3695), 5000: (2680, 3685)},
 }
-LEAD = {"art": {500: 7, 2500: 35, 5000: 35}, "tourist": {500: 7, 2500: 7, 5000: 35}}
+BOOKING_STD = {
+    "art":     {500: (0, 0), 2500: (0, 291), 5000: (0, 1891)},
+    "tourist": {500: (0, 0), 2500: (0, 0), 5000: (0, 0)},
+}
+# Dominant MaskablePPO lead-days across the 5 seeds.
+LEAD = {"art": {500: 7, 2500: 35, 5000: 35}, "tourist": {500: 7, 2500: 7, 5000: 21}}
 ALGO = {
     "art": {
-        500:  {"PPO-base": 5112, "DQN-base": 5230, "PPO-int": 7113, "MaskPPO-int": 7113, "DQN-int": 2842},
-        2500: {"PPO-base": 4780, "DQN-base": 3683, "PPO-int": 5646, "MaskPPO-int": 6297, "DQN-int": 6290},
-        5000: {"PPO-base": 4009, "DQN-base": 1756, "PPO-int": 4833, "MaskPPO-int": 5646, "DQN-int": 4324},
+        500:  {"PPO-base": 5112, "DQN-base": 4527, "PPO-int": 7113, "MaskPPO-int": 7113, "DQN-int": 4872},
+        2500: {"PPO-base": 4780, "DQN-base": 3986, "PPO-int": 5646, "MaskPPO-int": 6167, "DQN-int": 5190},
+        5000: {"PPO-base": 4010, "DQN-base": 2044, "PPO-int": 4832, "MaskPPO-int": 4800, "DQN-int": 2691},
     },
     "tourist": {
         500:  {"PPO-base": 2694, "DQN-base": 2694, "PPO-int": 3686, "MaskPPO-int": 3686, "DQN-int": 3686},
-        2500: {"PPO-base": 2708, "DQN-base": 2708, "PPO-int": 3695, "MaskPPO-int": 3695, "DQN-int": 3695},
-        5000: {"PPO-base": 2680, "DQN-base": 2680, "PPO-int": 2093, "MaskPPO-int": 3685, "DQN-int": 3685},
+        2500: {"PPO-base": 2708, "DQN-base": 2708, "PPO-int": 3695, "MaskPPO-int": 3695, "DQN-int": 3694},
+        5000: {"PPO-base": 2680, "DQN-base": 2680, "PPO-int": 2093, "MaskPPO-int": 3685, "DQN-int": 2900},
+    },
+}
+ALGO_STD = {
+    "art": {
+        500:  {"PPO-base": 0, "DQN-base": 1596, "PPO-int": 0, "MaskPPO-int": 0, "DQN-int": 2587},
+        2500: {"PPO-base": 0, "DQN-base": 225, "PPO-int": 0, "MaskPPO-int": 291, "DQN-int": 1115},
+        5000: {"PPO-base": 0, "DQN-base": 1254, "PPO-int": 0, "MaskPPO-int": 1891, "DQN-int": 2154},
+    },
+    "tourist": {
+        500:  {"PPO-base": 0, "DQN-base": 0, "PPO-int": 0, "MaskPPO-int": 0, "DQN-int": 0},
+        2500: {"PPO-base": 0, "DQN-base": 0, "PPO-int": 0, "MaskPPO-int": 0, "DQN-int": 0},
+        5000: {"PPO-base": 0, "DQN-base": 0, "PPO-int": 0, "MaskPPO-int": 0, "DQN-int": 1107},
     },
 }
 ALGO_ORDER = ["PPO-base", "DQN-base", "PPO-int", "MaskPPO-int", "DQN-int"]
 ALGO_COLOR = {"PPO-base": "#B8C4D9", "DQN-base": "#9AA7BD", "PPO-int": "#C0552B",
               "MaskPPO-int": "#1F3A5F", "DQN-int": "#2E8B57"}
 PROFILE_LABEL = {"art": "Art lover", "tourist": "Normal tourist"}
+# Toy tabular results: (mean, std) over the 5 seeds. Deterministic baselines have
+# std 0; only the stochastic random policy varies.
+TOY_Q = (83.3, 3.8)
+TOY_DQ = (83.1, 3.7)
+TOY_BL = [("default_path", -61.4, 0.0), ("greedy_value_ratio", -72.0, 0.0),
+          ("greedy_least_crowded", -43.1, 0.0), ("peak_avoidance", -33.7, 0.0),
+          ("random", 35.4, 3.7)]
 
 
 # ===========================================================================
@@ -214,12 +240,22 @@ def g_learning():
         if q.get("episode_lengths"):
             V.plot_episode_length_evolution(q["episode_lengths"], pngpath("episode_lengths"))
         V.plot_epsilon_decay(pngpath("epsilon_decay"))
-        if q.get("baseline_results"):
-            dq = q.get("double_q_learning_eval")
-            V.plot_baseline_comparison(q["baseline_results"],
-                                       q.get("q_learning_eval", {}).get("mean_return", 0.0),
-                                       pngpath("baseline_comparison"),
-                                       double_q_return=(dq.get("mean_return") if isinstance(dq, dict) else None))
+        # baseline comparison: 5-seed mean +/- std (the deterministic baselines have
+        # std 0; only learned Q / Double-Q and the random policy carry variance).
+        names = ["Q-learning", "Double-Q"] + [b[0] for b in TOY_BL]
+        means = [TOY_Q[0], TOY_DQ[0]] + [b[1] for b in TOY_BL]
+        errs = [TOY_Q[1], TOY_DQ[1]] + [b[2] for b in TOY_BL]
+        cols = [ACCENT, "#1F3A5F"] + ["#9AA7BD"] * len(TOY_BL)
+        figb, axb = plt.subplots(figsize=(8.4, 4.4))
+        xb = np.arange(len(names))
+        axb.bar(xb, means, 0.66, yerr=errs, color=cols, edgecolor="white", capsize=3,
+                error_kw={"elinewidth": 0.9, "ecolor": "#444"})
+        axb.axhline(0, color="#888", lw=0.8)
+        axb.set_xticks(xb); axb.set_xticklabels(names, rotation=28, ha="right", fontsize=8.5)
+        axb.set_ylabel("mean episode return"); axb.grid(axis="y", alpha=0.25)
+        axb.set_title("Toy: tabular Q-learning vs handcrafted baselines (5 seeds, mean $\\pm$ std)")
+        figb.tight_layout()
+        save(figb, "baseline_comparison")
 
 
 # ===========================================================================
@@ -238,14 +274,17 @@ def g_algo():
         ax = axes[0][j]
         for k, alg in enumerate(ALGO_ORDER):
             vals = [ALGO[p][c][alg] for c in CROWDS]
-            ax.bar(x + (k - 2) * w, vals, w, label=alg, color=ALGO_COLOR[alg], edgecolor="white", linewidth=0.4)
+            errs = [ALGO_STD[p][c][alg] for c in CROWDS]
+            ax.bar(x + (k - 2) * w, vals, w, yerr=errs, label=alg, color=ALGO_COLOR[alg],
+                   edgecolor="white", linewidth=0.4, capsize=2,
+                   error_kw={"elinewidth": 0.8, "ecolor": "#444"})
         ax.set_xticks(x); ax.set_xticklabels([CROWD_LABEL[c] for c in CROWDS])
         ax.set_title(PROFILE_LABEL[p]); ax.set_ylabel("points (deterministic eval)")
         ax.grid(axis="y", alpha=0.25)
         if j == 1:
             ax.legend(fontsize=8, ncol=1, loc="upper right", framealpha=0.9)
     fig.suptitle("Algorithm comparison: value-based (DQN) vs policy-gradient (PPO / MaskablePPO), "
-                 "baseline vs intervened", y=1.02)
+                 "baseline vs intervened (5 seeds, mean $\\pm$ std)", y=1.02)
     fig.tight_layout()
     save(fig, "algorithm_comparison")
 
@@ -289,16 +328,24 @@ def g_booking():
         ax = axes[0][j]
         base = [BOOKING[p][c][0] for c in CROWDS]
         intv = [BOOKING[p][c][1] for c in CROWDS]
-        ax.bar(x - w / 2, base, w, label="no interventions", color="#9AA7BD", edgecolor="white")
-        ax.bar(x + w / 2, intv, w, label="RAMA + interventions", color=ACCENT, edgecolor="white")
+        base_e = [BOOKING_STD[p][c][0] for c in CROWDS]
+        intv_e = [BOOKING_STD[p][c][1] for c in CROWDS]
+        ax.bar(x - w / 2, base, w, yerr=base_e, label="no interventions", color="#9AA7BD",
+               edgecolor="white", capsize=3, error_kw={"elinewidth": 0.9, "ecolor": "#444"})
+        ax.bar(x + w / 2, intv, w, yerr=intv_e, label="RAMA + interventions", color=ACCENT,
+               edgecolor="white", capsize=3, error_kw={"elinewidth": 0.9, "ecolor": "#444"})
         for i, c in enumerate(CROWDS):
             pct = 100 * (intv[i] - base[i]) / base[i]
-            ax.text(x[i] + w / 2, intv[i], f"+{pct:.0f}%", ha="center", va="bottom", fontsize=9, color=ACCENT)
+            ax.text(x[i] + w / 2, intv[i] + intv_e[i], f"+{pct:.0f}%", ha="center", va="bottom",
+                    fontsize=9, color=ACCENT)
         ax.set_xticks(x); ax.set_xticklabels([CROWD_LABEL[c] for c in CROWDS])
         ax.set_title(PROFILE_LABEL[p]); ax.set_ylabel("points"); ax.grid(axis="y", alpha=0.25)
+        panel_max = max(max(intv[i] + intv_e[i], base[i] + base_e[i]) for i in range(len(CROWDS)))
+        ax.set_ylim(0, panel_max * 1.30)
         if j == 0:
             ax.legend(fontsize=9, loc="upper right")
-    fig.suptitle("RAMA booking: intervened vs matched baseline (3/3 masterpieces secured at every crowd)", y=1.02)
+    fig.suptitle("RAMA booking: intervened vs matched baseline (5 seeds, mean $\\pm$ std; "
+                 "3/3 masterpieces secured)", y=1.02)
     fig.tight_layout()
     save(fig, "booking_grid")
 

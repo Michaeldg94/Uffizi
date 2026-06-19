@@ -8,13 +8,13 @@
     "7"
   ],
   "q_learning": {
-    "mean_return_mean": 85.9,
-    "mean_return_std": 8.7,
+    "mean_return_mean": 83.3,
+    "mean_return_std": 3.8,
     "n": 5
   },
   "double_q_learning": {
-    "mean_return_mean": 83.8,
-    "mean_return_std": 4.1,
+    "mean_return_mean": 83.1,
+    "mean_return_std": 3.7,
     "n": 5
   }
 }
