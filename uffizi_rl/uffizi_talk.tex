@@ -1,6 +1,7 @@
 % =============================================================================
 % UFFIZI RL: THE 15-MINUTE TALK  ("The Art of Queueing")
-% ~17 slides. Top-aligned frames + \vfill so content fills the slide uniformly.
+% Fuller slides: \small body, larger figures, more content, distributed so each
+% slide fills the vertical space.
 % Build: pdflatex uffizi_talk.tex (twice for the frame count).
 % =============================================================================
 \documentclass[aspectratio=169, 11pt, t]{beamer}
@@ -18,6 +19,7 @@
     \end{beamercolorbox}}%
   \vskip0pt%
 }
+\setbeamerfont{frametitle}{size=\large,series=\bfseries}
 
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
@@ -38,15 +40,19 @@
 \newcommand{\asset}[1]{../outputs/assets/#1}
 \newcommand{\pic}[1]{../outputs/assets/masterpieces/#1}
 
-% Symptom / Diagnosis / Fix / Lesson, spread down the slide with \vfill.
+% Body font for content frames and roomy paragraph spacing, so slides fill.
+\newcommand{\body}{\small}
+\setlength{\parskip}{0.45em}
+
+% Symptom / Diagnosis / Fix / Lesson, spread by \vfill so it fills top-to-bottom.
 \newcommand{\sdfl}[4]{%
-{\bad{\textbf{S}}\, \emp{Symptom.}\ #1}\par\vfill
-{\warn{\textbf{D}}\, \emp{Diagnosis.}\ #2}\par\vfill
-{\good{\textbf{F}}\, \emp{Fix.}\ #3}\par\vfill
-{\textbf{L}\, \emp{Lesson.}\ #4}\par}
+{\bad{\textbf{S}}\ \emp{Symptom.}\ #1}\par\vfill
+{\warn{\textbf{D}}\ \emp{Diagnosis.}\ #2}\par\vfill
+{\good{\textbf{F}}\ \emp{Fix.}\ #3}\par\vfill
+{\textbf{L}\ \emp{Lesson.}\ #4}\par}
 
 \title[The Art of Queueing]{The Art of Queueing}
-\subtitle{Reinforcement learning for visitor flow at the Uffizi}
+\subtitle{Reinforcement Learning for visitor flow at the Gallerie degli Uffizi in Florence}
 \author[Canal / Duarte Gon\c{c}alves / Guinea]{Marco Canal \and Michael Duarte Gon\c{c}alves \and Mircea-Adrian Guinea}
 \institute[BSE]{Reinforcement Learning, Barcelona School of Economics}
 \date{June 2026}
@@ -58,138 +64,138 @@
 
 % --- 2. The masterpieces ----------------------------------------------------
 \begin{frame}{The rooms everyone queues for}
-\footnotesize
+\body
+Almost every one of the $\sim$5{,}000 daily visitors comes for the same handful of paintings,
+crammed into just three rooms of the ninety-eight.
 \vfill
-\noindent
-\includegraphics[height=2.6cm]{\pic{botticelli_primavera.jpg}}\hfill
-\includegraphics[height=2.6cm]{\pic{botticelli_venus.jpg}}\hfill
-\includegraphics[height=2.6cm]{\pic{raphael_cardellino.jpg}}\\[6pt]
-\noindent
-\includegraphics[height=2.6cm]{\pic{leonardo_annunciation.jpg}}\hfill
-\includegraphics[height=2.6cm]{\pic{leonardo_magi.jpg}}\hfill
-\includegraphics[height=2.6cm]{\pic{michelangelo_tondo.png}}
+\centering
+\includegraphics[height=2.3cm]{\pic{botticelli_primavera.jpg}}\hfill
+\includegraphics[height=2.3cm]{\pic{botticelli_venus.jpg}}\hfill
+\includegraphics[height=2.3cm]{\pic{raphael_cardellino.jpg}}\\[10pt]
+\includegraphics[height=2.3cm]{\pic{leonardo_annunciation.jpg}}\hfill
+\includegraphics[height=2.3cm]{\pic{leonardo_magi.jpg}}\hfill
+\includegraphics[height=2.3cm]{\pic{michelangelo_tondo.png}}
 \vfill
 \raggedright
-\scriptsize Botticelli's \emp{Primavera} and \emp{Birth of Venus} (room A11/A12); Leonardo's
+Botticelli's \emp{Primavera} and \emp{Birth of Venus} (room A11/A12); Leonardo's
 \emp{Annunciation} and \emp{Adoration of the Magi} (A35); Raphael's \emp{Madonna del Cardellino}
-with Michelangelo's \emp{Doni Tondo} (A38). Almost every visitor comes for these few rooms.
-\vfill
+with Michelangelo's \emp{Doni Tondo} (A38).
 \end{frame}
 
 % --- 3. The two floors (clean maps) -----------------------------------------
 \begin{frame}{Too many people for a few rooms}
-\footnotesize
-\vfill
-The Uffizi takes $\sim$5{,}000 visitors a day and almost all want those few rooms; the other
-$\sim$90 sit near-empty. The crowd is \emp{60\%} Instagram, \emp{30\%} normal, \emp{10\%} art
-lovers. Not too many people for the building, too many for a few rooms at the same moments.
+\body
+The building is large: two floors and ninety-eight rooms. The problem is
+not the headcount but the \emp{concentration}: demand collapses onto the three masterpiece rooms
+upstairs and Caravaggio downstairs, so those rooms run far over capacity while the rest sit calm.
+The crowd is itself mixed, \emp{60\%} Instagram tourists, \emp{30\%} normal tourists and
+\emp{10\%} art lovers.
 \vfill
 \begin{columns}[c]
-\begin{column}{0.5\textwidth}\centering \scriptsize Second floor (the three gated masterpieces)\\[2pt]
-\includegraphics[width=\linewidth]{\asset{uffizi_floor2.png}}\end{column}
-\begin{column}{0.5\textwidth}\centering \scriptsize First floor (Caravaggio, free-flow)\\[2pt]
-\includegraphics[width=\linewidth]{\asset{uffizi_floor1.png}}\end{column}
+\begin{column}{0.5\textwidth}\centering \emp{Second floor} (the three gated masterpieces)\\[3pt]
+\includegraphics[width=0.94\linewidth]{\asset{uffizi_floor2.png}}\end{column}
+\begin{column}{0.5\textwidth}\centering \emp{First floor} (Caravaggio, free-flow)\\[3pt]
+\includegraphics[width=0.94\linewidth]{\asset{uffizi_floor1.png}}\end{column}
 \end{columns}
 \vfill
+\centering The real Gallerie degli Uffizi plan: the famous rooms cluster off one corridor on each floor.
 \end{frame}
 
-% --- 3. Two streams ---------------------------------------------------------
+% --- 4. Two streams ---------------------------------------------------------
 \begin{frame}{Two streams, one project}
-\footnotesize
+\body
+We split the project into two parts that stay separate until the very end.
 \vfill
 \begin{columns}[T]
 \begin{column}{0.5\textwidth}
-\textbf{Stream 1: crowd simulator.}\\[0.4em]
-The whole 60/30/10 population, a full day.
-\begin{itemize}\setlength\itemsep{6pt}
-\item Museum \emp{as-is} vs a Pigovian redesign.
-\item \emp{Director gate}: welfare up, revenue not down.
-\item Result: welfare \good{+31\%}, revenue preserved.
+\textbf{Stream 1: crowd simulator.}\\[0.5em]
+Run the whole 60/30/10 population through a full day, minute by minute.
+\begin{itemize}\setlength\itemsep{0.7em}
+\item Compare the museum \emp{as it is} against a Pigovian redesign (booked slots, pricing, hours).
+\item The \emp{director's gate}: adopt it only if welfare rises and revenue does not fall.
+\item It passes: welfare \good{+31\%}, revenue preserved.
 \end{itemize}
 \end{column}
 \begin{column}{0.5\textwidth}
-\textbf{Stream 2: RL on top (our focus).}\\[0.4em]
-Take the redesigned museum as given.
-\begin{itemize}\setlength\itemsep{6pt}
-\item What does the \emp{optimal} visitor \emp{do}?
-\item When to book, which masterpieces, how to pace.
-\item Under crowd uncertainty.
+\textbf{Stream 2: RL on top (our focus).}\\[0.5em]
+Take that redesigned museum as fixed and ask the sharper question.
+\begin{itemize}\setlength\itemsep{0.7em}
+\item Not the average visitor: the \emp{optimal} one.
+\item When to book, which masterpieces and how to pace the day.
+\item All under genuine uncertainty about the crowd.
 \end{itemize}
 \end{column}
 \end{columns}
 \vfill
-\begin{center}
-\emp{The gate passes first; only then do we study the optimal visit.}
-\end{center}
-\vfill
+\centering \emp{The gate passes first; only then do we study the optimal visit.}
 \end{frame}
 
-% --- 4. Foundations: the toy ------------------------------------------------
+% --- 5. Foundations: the toy ------------------------------------------------
 \begin{frame}{Foundations: a tabular proof of concept}
-\footnotesize
-\vfill
+\body
 \begin{columns}[c]
-\begin{column}{0.44\textwidth}
-A 12-room toy with deterministic crowd waves, small enough for an exact table.
-\emp{Q-learning} and \emp{Double-Q}.
-\vspace{0.8em}
-
-It learns \emp{temporal arbitrage}: enter a masterpiece in the crowd valley, not at the peak.
-It is never told the schedule.
-\vspace{0.8em}
-
-\emp{Honest result (5 seeds):} Q and Double-Q \emp{tie} ($83.3$ vs $83.1$). On a deterministic
-toy there is no overestimation for Double-Q to fix.
+\begin{column}{0.46\textwidth}
+We first prove the idea on a \emp{12-room toy}, small enough to keep an exact table of values for
+every situation. Crowds rise and fall in fixed waves; the agent is never told the schedule.
+\vfill
+Trained by trial and error, tabular \emp{Q-learning} discovers \emp{temporal arbitrage}: enter a
+masterpiece in the lull before or after its crowd peak, not when a guidebook would send everyone.
+\vfill
+\emp{Honest result (5 seeds):} Q and \emp{Double-Q} come out \emp{tied} ($83.3$ vs $83.1$). On a
+deterministic toy there is no overestimation bias for Double-Q to remove, so it neither helps nor
+hurts, exactly as the theory predicts.
 \end{column}
 \begin{column}{0.54\textwidth}\centering
-\includegraphics[width=\linewidth]{\fig{13_baseline_comparison.png}}
+\includegraphics[width=\linewidth]{\fig{13_baseline_comparison.png}}\\[0.4em]
+\footnotesize Learning beats every hand-written rule by a wide margin; the structured rules even go
+negative because they reliably mistime the crowd.
 \end{column}
 \end{columns}
 \vfill
+\centering \emp{Timing, learned from samples alone, beats every hand-written rule.}
 \end{frame}
 
-% --- 5. Scaling + masking ---------------------------------------------------
+% --- 6. Scaling + masking ---------------------------------------------------
 \begin{frame}{Scaling up: deep RL and action masking}
-\footnotesize
-\vfill
-The real museum breaks the table: 98 rooms, $\sim$100 actions, a $\sim$400-dim state. So we
-switch to neural networks and \emp{MaskablePPO}, with unmasked PPO and DQN as controls.
+\body
+The real museum destroys the table: ninety-eight rooms, about a hundred possible moves at each
+step and a state with several hundred numbers. We replace the table with a neural network and
+train it with \emp{MaskablePPO}, keeping unmasked PPO and DQN as controls so any gap is about the
+method, not luck.
 \vfill
 \begin{block}{Action masking: hand the agent the rulebook}
-The museum is a graph, so most actions are illegal at each step. We force every illegal action
-to zero probability before the softmax. No gradient is wasted learning ``which moves exist'';
-it all goes into the real decision.
+The museum is a graph, so from any room only a few moves are legal, yet the network has $\sim$100
+outputs. We set the score of every illegal move to $-\infty$ before the softmax, so it gets zero
+probability. No gradient is spent learning which moves exist; all of it goes into the decision
+that matters. This is mathematically a state-dependent action set and it is the single biggest
+architectural choice in the project.
 \end{block}
 \vfill
-\begin{center}\emp{It will turn out to be decisive exactly where the decision is hardest.}\end{center}
-\vfill
+\centering \emp{It turns out to be decisive exactly where the decision is hardest.}
 \end{frame}
 
-% --- 6. The reframe ---------------------------------------------------------
+% --- 7. The reframe ---------------------------------------------------------
 \begin{frame}{The decisive reframe: a booking problem}
-\footnotesize
+\body
+We spent months on a \emp{navigation} agent before admitting the obvious: a real visitor has a map
+and is guided by staff, so optimising the walk is a shortest path dressed up as RL, a trivial,
+fully observed problem. The genuinely uncertain, consequential decision is the \emp{booking}.
 \vfill
-We spent months on a \emp{navigation} agent. It was brittle and the worry grew: is routing
-with a map even a real RL problem? \emp{It is not} (a visitor has a map and a guide).
-\vfill
-The genuine, uncertain decision is the \emp{booking}:
-\begin{itemize}\setlength\itemsep{8pt}
-\item \emp{baseline (as-is museum):} no booking, just walk the crowds, the museum as it runs today;
-\item \emp{intervened (RAMA):} masterpieces gated by booked time-slots, so the decision becomes
-      \emp{lead time} $\in\{1,7,21,35\}$ days, then pace to each window.
+\begin{itemize}\setlength\itemsep{0.55em}
+\item \emp{Baseline (the museum as-is):} no booking at all, just walk into the crowds and take the
+      masterpieces as you find them.
+\item \emp{Intervened (RAMA):} the masterpieces are gated by booked time-slots, so the decision is
+      the \emp{lead time} ($1$, $7$, $21$, or $35$ days ahead), then pacing to reach each booked window.
+\item A crowd-dependent \emp{fill curve}: on a busy day the good slots sell out early, so booking late
+      forfeits masterpieces entirely. The discount is $\gamma=0.999$, since the payoff lands at check-in.
 \end{itemize}
 \vfill
-A crowd-dependent \emp{fill curve} makes good slots sell out on busy days, so booking late at a
-packed museum misses masterpieces.
-\vfill
-\begin{center}\emp{Lesson: choosing the MDP is more than half the work.}\end{center}
-\vfill
+\centering \emp{Choosing the right MDP, not tuning the algorithm, was more than half the project.}
 \end{frame}
 
-% --- 7. Headline result -----------------------------------------------------
+% --- 8. Headline result -----------------------------------------------------
 \begin{frame}{Result: book early when busier and it pays}
-\footnotesize
-\vfill
+\body
 \begin{columns}[c]
 \begin{column}{0.62\textwidth}\centering
 \includegraphics[width=\linewidth]{\fig{21_booking_grid.png}}
@@ -199,178 +205,169 @@ packed museum misses masterpieces.
 \end{column}
 \end{columns}
 \vfill
-Both profiles beat the matched no-booking baseline (5 seeds, mean$\pm$std):
-\good{+20\% to +39\%} (art), \good{+36\% to +38\%} (tourist). Lead rises with the crowd:
-book-early emerges from learning.
-\vfill
+Both profiles beat the matched no-booking baseline at every crowd level (five seeds, mean$\pm$std):
+\good{+20\% to +39\%} for the art lover, \good{+36\% to +38\%} for the tourist, with all three
+masterpieces secured. The learned lead time \emp{rises with the crowd} (right): book-early-when-busier
+is not coded in, it emerges from the reward, because booking late at a packed museum misses the rooms.
 \end{frame}
 
-% --- 8. The visit on the floor plan (MAP + PATHS) ---------------------------
+% --- 9. The visit on the floor plan -----------------------------------------
 \begin{frame}{What a visit looks like, on the real floor plan}
-\footnotesize
-\vfill
+\body
 \centering
-\includegraphics[width=0.84\linewidth]{\fig{23_walks_art_intervened.png}}
+\includegraphics[width=0.74\linewidth]{\fig{23_walks_art_intervened.png}}
 \vfill
 \raggedright
-\emp{Art lover, eight rollouts per panel, across the three crowds.} One continuous visit: enter
-at \code{A1}, sweep the second-floor masterpieces (gold stars), drop to Caravaggio on the first
-floor, exit. Every move is a one-hop neighbour; all three masterpieces are hit inside their
-booked windows.
-\vfill
+\emp{The art lover's learned visit, eight rollouts per panel, across the three crowd levels.} It is
+one continuous, sensible route: enter at \code{A1}, sweep the second-floor masterpieces (gold stars)
+in their booked windows, descend the staircase to Caravaggio on the first floor and leave before
+closing. Every step is a one-hop move to a neighbouring room, so there are no teleports.
 \end{frame}
 
-% --- 9. Algorithm comparison ------------------------------------------------
+% --- 10. Algorithm comparison -----------------------------------------------
 \begin{frame}{Which algorithm wins and why masking matters}
-\footnotesize
-\vfill
+\body
 \centering
-\includegraphics[width=0.82\linewidth]{\fig{15_algorithm_comparison.png}}
+\includegraphics[width=0.62\linewidth]{\fig{15_algorithm_comparison.png}}
 \vfill
 \raggedright
-\begin{itemize}\setlength\itemsep{5pt}
-\item \emp{MaskablePPO} is best or tied everywhere, stable across seeds.
-\item \emp{Masking is decisive at the hardest cell:} at the packed tourist, unmasked PPO
-      collapses to \bad{2093} (below the 2680 baseline) while MaskablePPO holds \good{3685}.
-\item \emp{DQN} is crowd-fragile and high-variance (baseline $4527\!\to\!2044$): its max over
-      noisy crowd values overestimates, the bias the toy never had.
+\begin{itemize}\setlength\itemsep{0.35em}
+\item \emp{MaskablePPO} is best or tied in every cell and stable across seeds.
+\item \emp{Masking is decisive exactly at the hardest cell:} at the packed tourist, unmasked PPO
+      \emp{collapses} to \bad{2093}, below the no-booking baseline of $2680$, while MaskablePPO holds
+      \good{3685}. At easier crowds the two agree; the gap appears only where precision matters.
+\item \emp{DQN is crowd-fragile and high-variance} (its baseline falls $4527\!\to\!2044$): taking a max
+      over noisy crowd values overestimates, the very bias the deterministic toy did not have.
 \end{itemize}
-\vfill
 \end{frame}
 
-% --- 10. Challenge 1 --------------------------------------------------------
+% --- 11. Challenge 1 --------------------------------------------------------
 \begin{frame}{The journey was the project: 1, an unlearnable reward}
-\footnotesize
-\vfill
+\body
 \sdfl
-{The agent never left the museum: it squatted in a room until the day ended. Zeroing all reward
-for failing to exit made it \emp{worse}.}
-{An all-or-nothing terminal wipe is \emp{flat} across almost every policy, so the gradient is
-zero. Nothing points toward the door.}
-{A \emp{dense} egress signal: per-step pressure that grows as closing nears, a finite (not
-infinite) no-exit penalty, an exit bonus.}
-{Sparse all-or-nothing rewards are often unlearnable. Shape a slope the optimiser can climb.}
-\vfill
+{The agent never left the museum: it would squat in one room until the day ended. The obvious fix,
+zeroing all reward if it failed to exit, made the behaviour \emp{worse}, not better.}
+{An all-or-nothing terminal wipe is \emp{flat} across almost every policy, so the gradient is zero.
+There is a cliff at the exit and a plateau everywhere else and from the plateau nothing points
+toward the door.}
+{Replace the wipe with a \emp{dense} egress signal: a per-step pressure that grows as closing nears
+and as you get further from an exit, a finite (not infinite) no-exit penalty and a bonus for leaving.}
+{Sparse, all-or-nothing rewards are correct but often unlearnable. Shape a slope the optimiser can
+actually climb.}
 \end{frame}
 
-% --- 11. Challenge 2 --------------------------------------------------------
+% --- 12. Challenge 2 --------------------------------------------------------
 \begin{frame}{2: the agent could not see what it had to decide on}
-\footnotesize
-\vfill
+\body
 \sdfl
-{``Stay until satisfied, then move on'' never stabilised; the agent over- and under-dwelt rooms
-at random.}
-{The right action depended on \emp{how much value it had already extracted here}, which was
-\emp{not in the observation}, a hidden variable (a POMDP).}
-{Add a per-room \emp{appreciation-progress} value to the state, so ``have I seen enough?'' is
-something the policy can read.}
-{The state must contain everything the optimal action depends on.}
-\vfill
+{The rule ``stay until satisfied, then move on'' never stabilised; the agent over- and under-dwelt
+rooms seemingly at random, even with a sensible reward.}
+{The right action depended on \emp{how much value it had already extracted from this room} and that
+progress was \emp{not in the observation}. It was a hidden variable, so the task was a POMDP, not the
+MDP we thought we had.}
+{Add a per-room \emp{appreciation-progress} value to the state, so ``have I seen enough of this
+room?'' becomes a function of something the policy can actually read.}
+{The state must contain everything the optimal action depends on, or you are not solving the problem
+you think you are.}
 \end{frame}
 
-% --- 12. Challenge 3 --------------------------------------------------------
+% --- 13. Challenge 3 --------------------------------------------------------
 \begin{frame}{3: reward shaping that backfired}
-\footnotesize
-\vfill
+\body
 \sdfl
-{A ``boredom'' penalty produced \emp{looping}; a harsh crowd penalty produced a \emp{fake art
-lover} that skipped crowded masterpieces.}
-{Every term you add is a new objective the optimiser games (reward hacking): circling beat
-exiting; a crowded Botticelli scored worse than skipping it.}
-{\emp{Minimal} shaping: a gentle crowd discount (a crowded masterpiece still beats skipping),
-drop the boredom penalty, let satiation carry ``move on''.}
-{Stress-test every reward term for the perverse incentive it creates.}
-\vfill
+{Well-meant extra terms made things worse: a ``boredom'' penalty produced \emp{looping} and a harsh
+crowd penalty produced a \emp{fake art lover} that sprinted past crowded masterpieces.}
+{Every term you add is a new objective the optimiser will game (reward hacking): circling a loop beat
+exiting under the boredom penalty and a crowded Botticelli scored worse than skipping it.}
+{\emp{Minimal} shaping: a \emp{gentle} crowd discount so a crowded masterpiece still beats skipping it,
+drop the boredom penalty entirely and let the satiation term carry ``stop lingering'' on its own.}
+{Stress-test every reward term by asking what the cheapest way to collect it is and whether that is
+what you actually want.}
 \end{frame}
 
-% --- 13. Challenge 4 (the best trick) ---------------------------------------
+% --- 14. Challenge 4 (the best trick) ---------------------------------------
 \begin{frame}{4: the do-nothing trap and the trick that cracked book-early}
-\footnotesize
-\vfill
+\body
 \sdfl
-{Given a free ``decline'' button, \emp{both} profiles declined all masterpieces. Even without
-it, book-early was only \emp{half}-learned.}
-{Declining is immediately safe while booking pays later (a do-nothing trap); and the booking
-payoff is hundreds of steps away, so its gradient is faint (credit assignment).}
-{Treat ``always books'' as a \emp{type trait} and add an \emp{immediate off-pace penalty}, a
-local proxy correlated with the distant cost.}
-{A small immediate signal that tracks a distant reward is what makes a long-horizon lesson
-learnable. The single most decisive trick.}
-\vfill
+{Given a free ``decline'' button, \emp{both} profiles learned to decline all three masterpieces. And
+even without it, book-early was only \emp{half} learned, with a flat spread of lead times.}
+{Declining is immediately safe while booking only pays off much later, a do-nothing local optimum; and
+the booking reward lands hundreds of steps away, so its gradient on the booking action is faint
+(long-horizon credit assignment).}
+{Treat ``always books'' as a \emp{type trait} that rules the escape hatch out and add an
+\emp{immediate off-pace penalty} at booking time, a local proxy that correlates with the distant cost.}
+{A small immediate signal that tracks a far-off reward is what makes a long-horizon lesson learnable.
+This was the single most decisive trick.}
 \end{frame}
 
-% --- 14. Multi-seed honesty -------------------------------------------------
-\begin{frame}{What five seeds revealed}
-\footnotesize
+% --- 15. Multi-seed honesty -------------------------------------------------
+\begin{frame}{What five seeds revealed (and why we ran them)}
+\body
+A single training run can be lucky or unlucky, so a single number can mislead. We retrained every cell
+under \emp{five} training seeds and report the mean and the spread across them.
 \vfill
-A single run can be lucky, so we retrained every cell under \emp{five} seeds and report the spread.
-\vfill
-\begin{itemize}\setlength\itemsep{10pt}
-\item \emp{Tourist:} rock-stable at every crowd.
-\item \emp{Art lover:} the gain degrades as the museum fills ($+39 \to +29 \to +20\%$).
-\item \emp{The honest catch:} at \emp{max crowd} the art lover is \emp{bimodal}, four of five
-      seeds reach $\sim$\good{+41\%} but one \bad{collapses}, so it averages \warn{+20\%} with a
-      wide band. We report the spread, not the lucky seed.
+\begin{itemize}\setlength\itemsep{1.0em}
+\item \emp{The tourist is rock-stable}: essentially zero variance at every crowd level.
+\item \emp{The art lover degrades as the museum fills}: the gain falls from $+39\%$ to $+29\%$ to $+20\%$.
+\item \emp{The honest catch:} at \emp{maximum crowd} the art lover is \emp{bimodal}, four of the five seeds
+      reach $\sim$\good{+41\%} but one \bad{collapses} below baseline, so the cell averages \warn{+20\%}
+      with a wide error bar. We report the spread, not the lucky seed.
 \end{itemize}
 \vfill
-\begin{center}\emp{Reporting variance honestly is part of the result.}\end{center}
-\vfill
+\centering \emp{Reporting variance honestly is part of the result, not a footnote.}
 \end{frame}
 
-% --- 15. Scoreboard ---------------------------------------------------------
+% --- 16. Scoreboard ---------------------------------------------------------
 \begin{frame}{What worked best and worst}
-\footnotesize
-\vfill
+\body
 \begin{columns}[T]
 \begin{column}{0.5\textwidth}
-\good{\textbf{Worked best}}
-\begin{itemize}\setlength\itemsep{8pt}
-\item \emp{Action masking}: the single biggest lever.
-\item \emp{Reframing to booking}: the right MDP.
+{\large\good{\textbf{Worked best}}}
+\begin{itemize}\setlength\itemsep{0.55em}
+\item \emp{Action masking}, the single biggest lever.
+\item \emp{Reframing} navigation into booking: the right MDP.
 \item \emp{An immediate proxy} for the delayed reward.
 \item \emp{Exposing appreciation progress}: Markov again.
-\item \emp{Dense egress shaping}: a learnable exit.
+\item \emp{Dense egress shaping}: a learnable way out.
 \end{itemize}
 \end{column}
 \begin{column}{0.5\textwidth}
-\bad{\textbf{Worked worst}}
-\begin{itemize}\setlength\itemsep{8pt}
+{\large\bad{\textbf{Worked worst}}}
+\begin{itemize}\setlength\itemsep{0.55em}
 \item \emp{All-or-nothing exit wipe}: zero gradient.
-\item \emp{Free decline button}: a do-nothing trap.
-\item \emp{Harsh crowd penalty}: a fake art lover.
-\item \emp{Boredom penalty}: a looping incentive.
-\item \emp{Greedy eval} of a stochastic policy.
+\item \emp{A free decline button}: a do-nothing trap.
+\item \emp{A harsh crowd penalty}: a fake art lover.
+\item \emp{A boredom penalty}: a perverse looping incentive.
+\item \emp{Greedy evaluation} of a stochastic policy.
 \end{itemize}
 \end{column}
 \end{columns}
 \vfill
+\centering \emp{The failures and their diagnoses, are the project; the numbers are where they stopped.}
 \end{frame}
 
-% --- 16. Conclusion + limitations -------------------------------------------
+% --- 17. Conclusion + limitations -------------------------------------------
 \begin{frame}{Conclusion and what is debatable}
-\footnotesize
-\vfill
-\begin{itemize}\setlength\itemsep{9pt}
-\item \emp{Result:} the optimal art lover and tourist \emp{book early, earlier when busier},
-      secure all three masterpieces, beat the no-booking baseline by \good{+20\% to +39\%} (art)
-      and \good{+36\% to +38\%} (tourist).
+\body
+\begin{itemize}\setlength\itemsep{0.9em}
+\item \emp{The result:} given the director-safe redesign, the optimal art lover and tourist
+      \emp{book early, earlier when busier}, secure all three masterpieces and beat the no-booking
+      baseline by \good{+20\% to +39\%} (art) and \good{+36\% to +38\%} (tourist).
 \item \emp{The journey was the project:} a chain of instructive failures, each a named RL lesson,
-      unlearnable reward, partial observability, reward hacking, do-nothing trap, credit assignment.
-\item \emp{Honestly debatable:} the 60/30/10 split, the dwell and crowd-density calibration and
-      room positioning are modelling choices (the floor-plan maps let you judge them); the fill
-      curve is calibrated, not booking data; the as-is museum abstracts away the real entry choice
-      (pre-book and skip the queue, or pay less and queue).
-\item \emp{Next:} the Vatican Museums, a larger topology and real booking traces.
+      unlearnable reward, partial observability, reward hacking, the do-nothing trap, credit assignment.
+\item \emp{Honestly debatable:} the 60/30/10 split, the dwell and crowd-density calibration and the room
+      positioning are modelling choices (the floor-plan maps let you judge them); the fill curve is
+      calibrated rather than fitted to booking data; and the as-is museum abstracts away the real entry
+      choice (pre-book and skip the queue, or pay less and queue at the door).
 \end{itemize}
-\vfill
 \end{frame}
 
-% --- 17. Thank you ----------------------------------------------------------
+% --- 18. Thank you ----------------------------------------------------------
 {\setbeamertemplate{footline}{}\begin{frame}[c]
 \centering
 {\Huge Thank you.}\\[0.9em]
 {\large Questions?}\\[1.6em]
-\footnotesize \emp{Code, figures and a plain-language guide to every algorithm:}\\
+\emp{Code, figures and a plain-language guide to every algorithm:}\\[0.3em]
 \code{github.com/mocl20/Uffizi}
 \end{frame}}
 
