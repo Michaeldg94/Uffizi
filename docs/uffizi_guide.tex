@@ -232,6 +232,19 @@ and a no-exit penalty ($-50$).
 $G_t = \sum_k \gamma^k r_{t+k}$ (equation~\eqref{eq:return}).
 \item[Discount] $\gamma = 0.99$.
 \end{description}
+
+\paragraph{What the five-part label looks like.} At the entrance, opening time, the state is
+\[
+s=\bigl(\underbrace{\texttt{ENTRY}}_{\text{room}},\ \underbrace{0}_{\text{time-slice}},\ \underbrace{0}_{\text{Botticelli crowd}},\ \underbrace{0}_{\text{Leonardo crowd}},\ \underbrace{0}_{\text{seen mask}}\bigr):
+\]
+the opening slice, both masterpiece rooms empty, nothing seen yet. The crowd levels are what make
+timing learnable. By mid-morning (time-slice $3$) the table reads Botticelli at its peak,
+$(\dots,3,3,1,\dots)$: crowd level $3$ of $3$ at Botticelli while Leonardo is still light ($1$), so a
+Q-learner that has learned \emph{temporal arbitrage} waits. Two slices later $(\dots,5,1,3,\dots)$ the
+wave has rolled on: Botticelli has emptied to $1$ (enter now) while Leonardo has filled to $3$. The
+last entry is a six-bit mask over the must-see rooms (\texttt{A11}, \texttt{A12}, \texttt{A16},
+\texttt{A35}, \texttt{A38}, \texttt{E4}); after seeing only Botticelli's \texttt{A11} it reads $1$
+(binary $000001$), so the agent can tell ``already seen'' from ``still to see''.
 \emph{What differs between the two algorithms is only the bookkeeping.} Q-learning stores one
 table $Q(s,a)$ and updates it with the single-table rule (equation~\eqref{eq:qupdate}),
 choosing the action with the largest entry in the row. Double-Q stores \emph{two} tables and
@@ -263,7 +276,7 @@ describe later.
 \end{itemize}
 So these were set by trial and error to produce sensible behaviour; several of them exist
 \emph{because} an earlier value failed and the booking reward's weights were shaped the same
-way. They are an honest, hand-tuned part of the model, not first-principles constants; the
+way. They are a hand-tuned part of the model, not first-principles constants; the
 \emph{rankings} they produce (off-peak beats peak, leaving beats squatting) are robust to the
 exact numbers, which is what we rely on.
 
@@ -284,6 +297,53 @@ pressure, completion, step cost); no booking terms.
 This is the museum \emph{as it runs today}: you walk in and take the masterpieces as you find
 them, crowds and all. It is the fair opponent for the intervention.
 
+\paragraph{What the eight numbers look like.} At the door (room \texttt{A1}, opening time) the
+observation reads
+\[
+s=\bigl(\underbrace{0.00}_{\text{drain}},\ \underbrace{0.22}_{\text{value}},\ \underbrace{0.30}_{\text{density}},\ \underbrace{0}_{\text{on target?}},\ \underbrace{0.00}_{\text{plan done}},\ \underbrace{0.00}_{\text{time}},\ \underbrace{0.99}_{\text{egress}},\ \underbrace{0.10}_{\text{dist.\ next}}\bigr).
+\]
+Six moves later, standing in the first must-see room \texttt{A9}, the same eight slots read
+\[ (0.21,\,0.78,\,0.02,\,1,\,0.00,\,0.01,\,0.98,\,0.00). \]
+Taking the slots one at a time, with the two readings side by side:
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=3pt]
+\item[1. Room-value drain \textmd{(\texttt{A1} $0.00$, \texttt{A9} $0.21$)}] How much of what the
+\emph{current} room has to give you have already absorbed: the appreciation taken here so far divided
+by the room's ideal dwell time, capped at $1$. $0$ means you just walked in and have taken nothing;
+$1$ means you are sated and more minutes here are wasted; it climbs the longer you linger. At
+\texttt{A9} you are one-fifth of the way through ($0.21$). This is the agent's ``have I seen enough of
+this room?'' gauge; it is exactly the hidden progress variable whose absence once turned the visit
+into a POMDP, because without it the agent cannot tell a fresh room from a drained one.
+\item[2. Room value \textmd{(\texttt{A1} $0.22$, \texttt{A9} $0.78$)}] The cultural importance of the
+room underfoot on the graph's $1$ to $10$ scale, divided by $10$. \texttt{A1} is a minor room ($2.2$);
+\texttt{A9} is a masterpiece room ($7.8$). It tells the agent how much reward dwelling here can yield
+at all, so it spends its minutes where they pay.
+\item[3. Density \textmd{(\texttt{A1} $0.30$, \texttt{A9} $0.02$)}] The crowd in the current room right
+now, measured as occupancy over capacity and clipped at $1$ ($0$ empty, $1$ at or over capacity). Here
+\texttt{A9} happens to be nearly empty ($0.02$). Crowd discounts appreciation (the reward divides by
+$1+\alpha\,\text{density}^2$), so this is the signal the agent uses to hit a masterpiece in its lull,
+the temporal-arbitrage move.
+\item[4. On-target flag \textmd{(\texttt{A1} $0$, \texttt{A9} $1$)}] $1$ when you are standing in the
+\emph{target}, the next must-see your plan points to (the nearest must-see you have not yet finished),
+$0$ otherwise. At \texttt{A1} you are not there ($0$); at \texttt{A9} you have arrived ($1$). It lets
+the agent know when ``stay and appreciate'' is the right move rather than ``keep walking''.
+\item[5. Fraction of the plan done \textmd{(\texttt{A1} $0.00$, \texttt{A9} $0.00$)}] How many of your
+must-see rooms are fully appreciated, as a share of the whole plan: $0$ at the start, $1$ when every
+must-see is done and only the exit remains. Still $0$ at \texttt{A9} because you have only just reached
+the first one. It tells the agent how much of the visit's purpose is already banked.
+\item[6. Time of day \textmd{(\texttt{A1} $0.00$, \texttt{A9} $0.01$)}] Minutes elapsed divided by the
+length of the day: $0$ at opening, $1$ at closing. Crowds follow the clock and the museum shuts, so
+every decision is time-sensitive.
+\item[7. Egress slack \textmd{(\texttt{A1} $0.99$, \texttt{A9} $0.98$)}] Spare time to get out before
+closing: (minutes left in the day minus the walking distance to the nearest exit) over the day length,
+clipped to $[-1,1]$. Near $1$ is oceans of time; near $0$ means leave now; negative means you can no
+longer make it out. This is the \emph{dense} ``head for the door'' signal we added after the
+all-or-nothing exit penalty proved unlearnable.
+\item[8. Distance to the next room \textmd{(\texttt{A1} $0.10$, \texttt{A9} $0.00$)}] How far the next
+planned room is, in graph hops, divided by $20$ and capped at $1$. At \texttt{A1} the next must-see is
+two hops off ($2/20=0.10$); at \texttt{A9} you are already in it, so $0$. It tells the agent how much
+walking, time and crowd exposure stand between it and its next goal.
+\end{description}
+
 The second MDP is the \key{RAMA} task, what \texttt{MaskablePPO} solves (with unmasked PPO and
 DQN as controls) and here \emph{the booking is the whole decision}:
 \begin{description}[leftmargin=0pt,style=nextline,itemsep=2pt]
@@ -299,6 +359,49 @@ $\in\{1,7,21,35\}$ days and whether to take each masterpiece slot; in the visit 
 penalty and the no-show penalty).
 \item[Return / Discount] The discounted sum over the two-phase episode, with $\gamma = 0.999$
 (the booking payoff lands at check-in, hundreds of minutes later).
+\end{description}
+
+\paragraph{What the twenty-five numbers look like.} On the booking screen, before the visit and on
+a busy day (\texttt{daily\_total}$=2500$), the art lover sees a vector that opens
+\[
+\bigl(\underbrace{1}_{\text{booking}},\ \underbrace{0}_{\text{step}},\ \underbrace{1.0}_{\text{lead so far}};\ \underbrace{0.12,\,0.38,\,0.62,\,1.0}_{\text{slots open at lead }1,7,21,35\text{ d}};\ \underbrace{0.0}_{\text{time}};\ \dots\bigr).
+\]
+Those four boxed numbers are the crux of the task: book only a day ahead and just \emph{12\%} of the
+masterpiece windows are left; book a month ahead and \emph{all} of them are open. Here is the whole
+vector, block by block, with the values from this opening state:
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=3pt]
+\item[Where you are in booking \textmd{(slots 1 to 3: $1,\ 0,\ 1.0$)}] A \emph{phase flag} ($1$ = you
+are on the booking screen, $0$ = you are walking the museum), a \emph{step} counter for which booking
+sub-decision you are on (normalized, $0$ at the first), then the \emph{lead time chosen so far} as a
+fraction of the $35$-day maximum ($1.0$ = the full month, before you have shortened it). Together they
+tell the agent which decision it is making right now.
+\item[The booking screen \textmd{(slots 4 to 7: $0.12,\ 0.38,\ 0.62,\ 1.0$)}] The fraction of
+masterpiece slots still open if you reserve at each of the four lead times, $1$, $7$, $21$ and $35$
+days ahead. On this busy day only $12\%$ remain a day before but all are free a month before, which is
+the whole reason the agent learns to \emph{book earlier when the crowd is bigger}.
+\item[Time of day \textmd{(slot 8: $0.0$)}] Minutes elapsed over the length of the day, $0$ here
+because the visit has not started; it climbs to $1$ at closing once the agent is inside.
+\item[Windows you hold \textmd{(slots 9 to 11: $0,\ 0,\ 0$)}] The start time (as a fraction of the
+day) of the booked window for Botticelli, Leonardo and Raphael in turn, or $0$ if that masterpiece is
+not booked. All zero here because nothing has been reserved on the opening screen.
+\item[Check-ins done \textmd{(slots 12 to 14: $0,\ 0,\ 0$)}] One flag per masterpiece, $1$ once you
+have actually entered its room inside its window and collected the reward, $0$ otherwise. All zero
+before the visit.
+\item[Access read of the room underfoot \textmd{(slots 15 to 18: $0,\ 0,\ 0,\ 0$)}] Four numbers that
+describe the current room \emph{as a reservation}: is it a gated masterpiece, is it a masterpiece you
+have not booked (so you cannot enter), may you appreciate it right now (your window is open or you are
+checked in) and how many minutes until your window opens. All zero here because \texttt{A1} is an
+ordinary room; they light up only when the agent stands in a masterpiece, connecting ``I get nothing
+here'' to ``my window is not open yet''.
+\item[Frozen pace prior \textmd{(slots 19 to 21: $0.23,\ 0.57,\ 0.66$)}] A running-average estimate,
+learned on earlier episodes then frozen, of \emph{when in the day this visitor reaches} Botticelli,
+Leonardo and Raphael. Here it expects Botticelli about a quarter into the day, Leonardo and Raphael
+past the half. The agent books its windows around these times, so it reserves a slot it can actually
+reach rather than one it will miss.
+\item[The room-level tail \textmd{(slots 22 to 25: $0,\ 0.22,\ 0.05,\ 0.99$)}] The same four signals
+as the as-is state: how drained the current room is, its value (importance over $10$), its crowd and
+the egress slack to the exit. They let the single network handle the walking part of the episode once
+the booking is settled.
 \end{description}
 \emph{What differs between the algorithms within the RAMA task} is only the machinery: DQN
 outputs a value $Q(s,a)$ and acts greedily; PPO outputs action probabilities and samples;
@@ -509,7 +612,7 @@ machinery is solving a problem that is not there.} The small run-to-run wobble y
 not target noise; it is exploration noise, which way the $\varepsilon$-greedy coin sent
 the agent early in training and that affects both algorithms equally.
 
-This is exactly why we report both. The honest lesson is not ``Double-Q is better'' but
+This is exactly why we report both. The real lesson is not ``Double-Q is better'' but
 ``Double-Q earns its keep precisely when the environment is noisy.'' Hold that thought:
 when we get to DQN on the full, genuinely stochastic museum, the very same overestimation
 will return and will hurt and the contrast will explain a real gap in the results.
@@ -621,7 +724,7 @@ of what worked.''
 The trouble with the raw recipe is \key{variance}. Using the whole-episode return $G$ to
 judge \emph{every} action in that episode is terribly noisy: a single great booking can be
 buried inside an otherwise mediocre visit and a clumsy move can ride the coat-tails of a
-lucky day. The learning signal is honest on average but jumps around so much that training
+lucky day. The learning signal is unbiased on average but jumps around so much that training
 is painfully slow. Two ideas tame it and together they turn REINFORCE into a method that
 actually works at scale. First, instead of judging an action by the whole return, judge it
 by how much better things went than \emph{expected}, which requires something that predicts
@@ -1067,7 +1170,7 @@ realistically arrive. Now the agent feels a consequence \emph{immediately}, corr
 the distant one and the gradient has something nearby and strong to follow. This single
 trick is what turned ``book early'' from half-learned to crisply learned and it is a
 beautiful illustration of a general principle: when the true reward is too far away to
-teach, engineer an honest local signal that points the same way.
+teach, engineer a faithful local signal that points the same way.
 
 \subsection{Two modelling choices worth being explicit about}\label{sec:modelling}
 
@@ -1198,7 +1301,7 @@ at the packed crowd the optimum is a knife-edge, book the longest lead \emph{and
 long, crowd-sensitive visit so every window is met before closing. \why{That narrow optimum
 sits next to a basin of failure and which one a given training run falls into depends on
 its seed. Four seeds find the knife-edge ($+41\%$); one slips into the failure basin and
-collapses. Averaging gives the modest $+20\%$ with the wide band.} The honest way to report
+collapses. Averaging gives the modest $+20\%$ with the wide band.} The right way to report
 this cell and the way the figure now shows it, is the mean with its error bar: the
 intervention usually delivers a large gain for the art lover even at maximum crowd, but at
 that single hardest cell the result is not guaranteed and the spread says so.
@@ -1399,7 +1502,7 @@ case study in what happens when you do and do not.
 \paragraph{Why average five seeds rather than report the best run?} Because the best run is
 cherry-picking and it can hide fragility. The art-lover/max-crowd cell looks like a clean
 $+41\%$ on a lucky seed, but across five it is revealed as a coin-flip between a large gain
-and a collapse. The mean with its standard deviation is the honest summary: it states both
+and a collapse. The mean with its standard deviation is the faithful summary: it states both
 the typical outcome and how much we can trust it.
 
 \paragraph{If we hand the agent the legal moves, is it really learning?} Yes, it is learning
