@@ -1,0 +1,461 @@
+% =============================================================================
+% UFFIZI RL: THE AGENTS IN FULL
+% States, action spaces, policies, reward functions, the maths, and the code.
+% A standalone reference companion to docs/AGENTS.md.
+% =============================================================================
+\documentclass[11pt]{article}
+
+\usepackage[a4paper,margin=2.3cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,mathtools}
+\usepackage{booktabs}
+\usepackage{array}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{enumitem}
+\usepackage[hidelinks]{hyperref}
+
+\setlist{nosep,leftmargin=1.4em}
+
+% -- colours ---------------------------------------------------------------
+\definecolor{codekw}{RGB}{0,40,160}
+\definecolor{codecm}{RGB}{120,120,120}
+\definecolor{codestr}{RGB}{0,120,90}
+\definecolor{rulec}{RGB}{180,180,190}
+\definecolor{boxbg}{RGB}{245,246,250}
+\definecolor{accent}{RGB}{31,58,95}
+
+% -- code style (lightly stylized excerpts, not verbatim source) -----------
+\lstset{
+  language=Python,
+  basicstyle=\ttfamily\footnotesize,
+  keywordstyle=\color{codekw}\bfseries,
+  commentstyle=\color{codecm}\itshape,
+  stringstyle=\color{codestr},
+  numbers=left, numberstyle=\tiny\color{codecm}, numbersep=7pt,
+  frame=single, rulecolor=\color{rulec}, backgroundcolor=\color{boxbg},
+  breaklines=true, showstringspaces=false, columns=fullflexible,
+  keepspaces=true, xleftmargin=2.0em, framexleftmargin=1.6em,
+  morekeywords={lambda},
+}
+
+% -- helper macros ---------------------------------------------------------
+\newcommand{\file}[1]{\texttt{\small #1}}
+\newcommand{\co}[1]{\texttt{\small #1}}
+\newcommand{\R}{\mathbb{R}}
+\newcommand{\E}{\mathbb{E}}
+\newcommand{\Acal}{\mathcal{A}}
+\newcommand{\ind}{\mathbb{1}}
+
+\title{\textbf{Uffizi RL: The Agents in Full}\\[2pt]
+\large States, Action Spaces, Policies, Reward Functions, the Maths, and the Code}
+\author{Marco Canal \quad\textbar\quad Reinforcement Learning, BSE}
+\date{Spring 2026}
+
+\begin{document}
+\maketitle
+
+\noindent
+This is the single place that answers ``what is each agent, what does it observe,
+what can it do, and what is it optimising.'' Every reward weight and line reference
+is taken from the current code. Code listings are \emph{lightly stylized} (renamed for
+clarity, error handling stripped); the file and line in each heading points to the real
+source. The companion map of where everything lives is \file{docs/AGENTS.md}.
+
+\vspace{2pt}
+\section{The cast, at a glance}
+
+The project has two algorithm families and one layered environment design: a single
+core environment (\file{UffiziEnv}) holds the real state and reward, and three thin
+wrappers change only the action interface, delegating the per-minute reward back to the
+core. The toy world (\file{ToyTabularEnv}) is separate, small enough for an exact table.
+
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\setlength{\tabcolsep}{3.8pt}
+\scriptsize
+\begin{tabular}{@{}l l l l l c@{}}
+\toprule
+\textbf{Agent} & \textbf{Env class} & \textbf{State} & \textbf{Action} & \textbf{Algorithm} & $\gamma$ \\
+\midrule
+Toy art lover     & \file{ToyTabularEnv}  & 5-tuple ($\sim$123k) & \co{Discrete(1+deg)} & Q-learning, Double-Q & 0.99 \\
+Deep navigator    & \file{UffiziEnv}      & $\R^{5N+3}$          & \co{Discrete(1+deg)} & MaskablePPO, PPO, DQN & 0.995 \\
+Art-lover booking & \file{RamaArtLoverEnv}& $\R^{25}$            & \co{Discrete(4)}     & MaskablePPO & 0.999 \\
+Tourist booking   & \file{RamaTouristEnv} & $\R^{25}$ (inherit.) & \co{Discrete(4)}     & MaskablePPO & 0.999 \\
+Baseline walk     & \file{PlannedRouteEnv}& $\R^{8}$             & \co{Discrete(2)}     & PPO/DQN (no levers) & 0.995/.999 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent
+\textbf{Two families.} \emph{Value-based} methods learn an action-value $Q(s,a)$ and act
+greedily (tabular Q-learning $\to$ Double Q-learning $\to$ DQN). \emph{Policy-based}
+actor-critic methods learn the policy $\pi_\theta(a\mid s)$ directly (PPO $\to$
+MaskablePPO). We use the tabular pair for the foundations proof, and the deep pair for
+the real museum, with MaskablePPO as the headline and DQN / unmasked PPO as controls.
+
+% =============================================================================
+\section{Part I. Foundations: the toy museum (\file{agents/q\_learning.py})}
+% =============================================================================
+
+A 12-room graph with deterministic Gaussian crowd waves. Small enough that $Q$ is a
+literal lookup table, so we can prove the core idea (\emph{temporal arbitrage}: time
+your masterpiece visit to its crowd valley) before scaling.
+
+\subsection{The MDP}
+
+\paragraph{State \ (\file{get\_state}, q\_learning.py:304).} A discrete 5-tuple, small
+enough that the whole value function fits in a table of $\approx 1.23\times10^5$ cells:
+\[
+s \;=\; \big(\, \underbrace{\text{room}}_{12}\,,\ \underbrace{t_{\text{bin}}}_{0..9}\,,\ \underbrace{c_{\text{bott}}}_{0..3}\,,\ \underbrace{c_{\text{leo}}}_{0..3}\,,\ \underbrace{\text{visited}}_{0..63}\,\big).
+\]
+Reading each field, and why the agent needs it:
+\begin{itemize}
+\item \textbf{room} (1 of 12): where I am standing now, my only sense of location.
+\item \textbf{$t_{\text{bin}}$} (0--9): how far through the day, in ten coarse slices. The crowd waves peak at fixed hours, so the agent must know the time to exploit a valley.
+\item \textbf{$c_{\text{bott}}$} (0--3): how crowded the Botticelli pair is \emph{right now}, bucketed into empty, moderate, busy, or packed. This is what makes ``wait for the peak to pass'' decidable.
+\item \textbf{$c_{\text{leo}}$} (0--3): the same live crowd reading for Leonardo.
+\item \textbf{visited} (0--63): a 6-bit flag of which of the 6 must-sees I have already seen, so the agent stops revisiting and knows what is still left.
+\end{itemize}
+Crowd is coarsened to 4 levels and time to 10 slices on purpose: it keeps the table
+small enough to fill by experience.
+
+\paragraph{Actions \ (q\_learning.py:155).}
+$a\in\{0,\dots,\text{max\_degree}\}$: $0$ is \emph{stay}, $1\dots$ move to the $i$-th
+alphabetically-sorted neighbour. A legality mask $\Acal(s)$ marks valid moves.
+
+\paragraph{Reward / objective \ (q\_learning.py:419).} The agent maximises the sum over
+the day of a per-minute utility with four parts:
+\[
+r(s,a)\;=\;\underbrace{\frac{\mathrm{imp}(\text{room})\cdot \nu}{\,1+\alpha_A\,\rho^2\,}}_{\text{art value}}\ \underbrace{-\;c_{\text{step}}}_{\text{urgency}}\ \underbrace{-\;\kappa_{\text{close}}\max(0,\,d_{\text{exit}}+b-\tau)}_{\text{egress pressure}}\ +\ \underbrace{r_{\text{exit}}\ \text{or}\ r_{\text{noexit}}}_{\text{terminal}}.
+\]
+\begin{itemize}
+\item \textbf{art value}: the room's importance to this visitor, divided down when crowded ($\rho$ is the live density, $\alpha_A=6$ makes the art lover strongly crowd-averse). The satiation factor $\nu=(\text{novelty\_decay})^{\,n_{\text{visits}}}$ halves on every revisit, so re-entering a seen room pays almost nothing: the agent is pushed to cover new rooms, not loop.
+\item \textbf{urgency} ($-c_{\text{step}}$ each minute): standing still or backtracking is a small net loss, so the visit keeps moving.
+\item \textbf{egress pressure}: zero while there is still time to walk to a door ($d_{\text{exit}}$ hops plus a buffer $b$, within the time left $\tau$), and growing once the agent is too far out as closing nears.
+\item \textbf{terminal}: $+15$ for leaving voluntarily, $-50$ for being trapped inside at closing.
+\end{itemize}
+Constants (q\_learning.py:129): $\alpha_A=6$, novelty\_decay $=0.5$, $c_{\text{step}}=0.5$,
+$\kappa_{\text{close}}=4$, $b=5$, $r_{\text{exit}}=+15$, $r_{\text{noexit}}=-50$.
+
+\subsection{Q-learning (q\_learning.py:520)}
+
+Model-free, off-policy, value-based. We bootstrap each cell toward the Bellman target:
+\[
+\boxed{\;Q(s,a)\;\leftarrow\;Q(s,a)\;+\;\alpha\Big[\,\underbrace{r+\gamma\!\!\max_{a'\in\Acal(s')}\!Q(s',a')}_{\text{TD target}}\;-\;Q(s,a)\,\Big]\;}
+\]
+with $\alpha=0.1$, $\gamma=0.99$, and $\varepsilon$-greedy exploration over valid actions
+($\varepsilon:1.0\!\to\!0.01$, multiplied by $0.9995$ each episode). The greedy
+evaluation policy is $\pi(s)=\arg\max_{a\in\Acal(s)} Q(s,a)$. Note the $\max$ is
+\emph{masked} to legal moves, so we never bootstrap off an impossible transition.
+
+\begin{lstlisting}
+def get_state(self):
+    time_bin   = min(9, int(10 * self.t / self.horizon))   # time of day, 0..9
+    crowd_bott = bin(max(crowd("A11"), crowd("A12")))       # Botticelli pair, 0..3
+    crowd_leo  = bin(crowd("A35"))                          # Leonardo, 0..3
+    visited    = bitmask(self.visited, KEY_ROOMS)           # 6 must-sees -> 0..63
+    return (self.current_room, time_bin, crowd_bott, crowd_leo, visited)
+
+# --- the update (epsilon-greedy action, then masked TD(0)) ---
+td_target = r if done else r + gamma * max(Q[s_next][valid])   # masked max
+Q[s][a]  += lr * (td_target - Q[s][a])                          # lr = 0.1
+\end{lstlisting}
+
+\subsection{Double Q-learning (q\_learning.py:826)}
+
+The single $\max$ over noisy estimates is biased upward: the same noisy table both
+\emph{selects} and \emph{evaluates} the next action, and by Jensen's inequality
+$\E[\max_a Q(s',a)]\ge \max_a \E[Q(s',a)]$. Double Q-learning keeps two tables and
+decouples the two roles:
+\[
+Q_A(s,a)\;\leftarrow\;Q_A(s,a)+\alpha\Big[\,r+\gamma\,Q_B\big(s',\,\underbrace{\arg\max_{a'} Q_A(s',a')}_{\text{select with }A}\big)\;-\;Q_A(s,a)\,\Big],
+\]
+($Q_B$ \emph{evaluates} what $Q_A$ selects; roles swapped on a coin flip). The policy
+acts on the average $\tfrac12(Q_A+Q_B)$.
+
+\begin{lstlisting}
+if coin() < 0.5:
+    a_star = argmax(Q_A[s_next][valid])      # SELECT with table A
+    target = r + gamma * Q_B[s_next][a_star]  # EVALUATE with table B
+    Q_A[s][a] += lr * (target - Q_A[s][a])
+else:
+    a_star = argmax(Q_B[s_next][valid])      # symmetric: roles swapped
+    target = r + gamma * Q_A[s_next][a_star]
+    Q_B[s][a] += lr * (target - Q_B[s][a])
+\end{lstlisting}
+
+\noindent\textbf{Honest result.} On this \emph{deterministic} toy there is little
+maximisation bias to remove, so vanilla Q-learning slightly edges Double-Q
+($100.5$ vs $86.9$). Double-Q earns its keep under noise, which is exactly where its
+deep descendant (Double DQN) helps. It is the tabular ancestor of that idea.
+
+% =============================================================================
+\section{Part II. The core environment (\file{environment/uffizi\_env.py})}
+% =============================================================================
+
+The full 98-room museum. One controlled visitor; the rest of the crowd is the
+(off-limits) simulator advancing one minute per step. The toy table cannot survive
+$98$ rooms with a continuous density each, so $Q$/$\pi$ become neural networks.
+
+\subsection{State \ (\file{\_build\_observation}, uffizi\_env.py:573)}
+
+The observation is one float vector $o(s)\in\R^{5N+3}$ ($N=98$ rooms), the policy's
+entire view of the museum each minute, eight blocks stacked together:
+\[
+o(s)=\big[\;\text{onehot(room)}\,;\ \rho\,;\ \Delta\rho\,;\ t/T\,;\ \text{slack}\,;\ \text{visited}\,;\ \text{progress}\,;\ \text{fatigue}\;\big].
+\]
+\begin{itemize}
+\item \textbf{onehot(room)} ($N$ dims, $\{0,1\}$): which room I occupy. Everything else is read relative to this.
+\item \textbf{$\rho$, density} ($N$, $[0,1]$): how full \emph{every} room is now (occupancy over capacity), so the agent can steer toward calmer rooms.
+\item \textbf{$\Delta\rho$, trend} ($N$, $[-1,1]$): whether each room is filling or emptying, so it can anticipate a room about to clear rather than react late.
+\item \textbf{$t/T$, time} (1, $[0,1]$): how far through the open day, the only hard deadline.
+\item \textbf{slack, egress} (1, $[-1,1]$): minutes left minus hops to the nearest exit. Positive means ``still time to sightsee'', $\le 0$ means ``head for a door now''. This one feature is what lets the policy time its exit.
+\item \textbf{visited} ($N$, $\{0,1\}$): which rooms I have already entered.
+\item \textbf{progress, appreciation} ($N$, $[0,1]$): how much of each room's ideal dwell I have already used up. Without this, ``stay until satisfied, then move on'' is not decidable from the state, this block is the fix for that observability bug.
+\item \textbf{fatigue} (1, $[0,1]$): accumulated tiredness over the visit.
+\end{itemize}
+
+\paragraph{Actions \ (uffizi\_env.py:326).} \co{Discrete(1+max\_degree)}: stay, or move
+to a neighbouring room. A legality mask gives the set $\Acal(s)$ of one-hop moves.
+
+\subsection{Reward / objective \ (\file{compute\_reward}, uffizi\_env.py:833)}
+
+The per-minute reward is a sum of interpretable terms,
+\[
+\boxed{\;r \;=\; r_{\text{art}} + r_{\text{time}} + r_{\text{cong}} + r_{\text{close}} + r_{\text{complete}} + r_{\text{bored}} + r_{\text{checkin}} + r_{\text{wait}}\;}
+\]
+The headline term is the art value, crowd-discounted and satiating:
+\[
+r_{\text{art}}=\mathrm{imp}\cdot\underbrace{\frac{1}{1+\alpha\,\rho^2}}_{\text{crowd factor (gentle, }\alpha=0.5)}\cdot\underbrace{\operatorname{clip}\!\Big(\frac{D_{\text{ideal}}-e}{\text{shoulder}},\,0,\,1\Big)}_{\text{novelty: plateau satiation}},\qquad
+D_{\text{ideal}}=\max\!\big(1,\,k_{d}\,(\mathrm{imp}-\text{floor})\big).
+\]
+Appreciation accumulates \emph{slower in a crowd} (fight-to-the-front), so a packed room
+eats more of the fixed day: $e \leftarrow e + \tfrac{1}{1+\beta\rho}$ (a busier day
+therefore yields fewer rooms and fewer total points). Reading every term:
+\begin{itemize}
+\item \textbf{$r_{\text{art}}$, the payoff}: how much this visitor values the room (\co{importance}), times two factors. The \emph{crowd factor} $1/(1+\alpha\rho^2)$ shaves value when the room is full, but \emph{gently} ($\alpha=0.5$), so a packed Botticelli still far outscores an empty side gallery (a harsh penalty made the agent skip masterpieces). The \emph{novelty} factor pays the room's full value across its ideal dwell $D_{\text{ideal}}$ (about 30 minutes for a masterpiece, scaling with importance) and tapers to zero only over the last few minutes, so ``stay until satisfied, then leave'' beats a quick glance.
+\item \textbf{$r_{\text{time}}$, urgency} ($-0.15$ per minute): a flat per-minute cost, so lingering past satiation, or wandering, is a net loss.
+\item \textbf{$r_{\text{close}}$, egress} ($-\kappa\max(0,d_{\text{exit}}{+}b{-}\tau)$, $\kappa{=}4$): zero while a door is comfortably reachable, escalating once the agent falls behind schedule, the learnable ``head out in time'' signal.
+\item \textbf{$r_{\text{complete}}$, finish a must-see} ($+k_c\,\mathrm{imp}$, $k_c{=}15$, only for $\mathrm{imp}\!\ge\!7$): a one-time bonus for fully appreciating a masterpiece. It is the discrete target that makes the agent see one to the end rather than glance, then move to the next.
+\item \textbf{$r_{\text{bored}}$, stop camping} ($-k_b$ if it chooses to \co{stay} in an already-satiated room): with $r_{\text{complete}}$ pulling it to stay until done and boredom pushing it to leave after, the dwell sharpens to about $D_{\text{ideal}}$ and ``camp one room forever'' is killed. Off in the bare core, on ($k_b{=}4$) for the booking agents.
+\item \textbf{$r_{\text{checkin}},\,r_{\text{wait}}$, booking} (Part III): $+50$ for entering a booked masterpiece inside its window, and $-2$ for idling before that window opens. Zero unless RAMA is active.
+\item \textbf{$r_{\text{cong}}=0$}: there is deliberately no separate congestion term. Crowd already enters through $r_{\text{art}}$ and the slower dwell above; adding one double-counted aversion and made the agent skip crowded masterpieces.
+\end{itemize}
+
+\begin{lstlisting}
+crowd_factor = 1.0 / (1.0 + art_crowd_alpha * dens**2)        # gentle: alpha = 0.5
+ideal_dwell  = max(1.0, dwell_per_importance * max(0.0, importance - floor))
+novelty      = clip((ideal_dwell - extracted) / shoulder, 0.0, 1.0)   # plateau
+extracted   += 1.0 / (1.0 + dwell_crowd_beta * dens)          # crowded -> slower
+r_art        = importance * crowd_factor * novelty
+r_close      = -closing_pressure * max(0.0, dist_exit + buffer - time_left)
+reward       = r_art + r_time + r_close + r_completion + r_boredom + r_checkin + r_wait
+\end{lstlisting}
+
+\subsection{MaskablePPO: the headline algorithm (\file{agents/train\_maskable\_ppo.py})}
+
+PPO is an on-policy actor-critic: an \emph{actor} $\pi_\theta(a\mid s)$ proposes moves, a
+\emph{critic} $V_\theta(s)$ scores states. The policy-gradient direction is
+\[
+\nabla_\theta J(\theta)=\E\big[\,\nabla_\theta\log\pi_\theta(a\mid s)\,\hat A(s,a)\,\big],
+\]
+with advantages estimated by GAE,
+\[
+\delta_t=r_t+\gamma V(s_{t+1})-V(s_t),\qquad \hat A_t=\sum_{l\ge0}(\gamma\lambda)^l\,\delta_{t+l}.
+\]
+PPO maximises a \emph{clipped surrogate} that forbids destructively large policy steps
+(its trust region):
+\[
+\boxed{\;L^{\text{CLIP}}(\theta)=\E_t\!\Big[\min\big(\rho_t\hat A_t,\ \operatorname{clip}(\rho_t,1-\epsilon,1+\epsilon)\hat A_t\big)\Big],\qquad \rho_t=\frac{\pi_\theta(a_t\mid s_t)}{\pi_{\theta_{\text{old}}}(a_t\mid s_t)}.\;}
+\]
+
+\paragraph{Action masking (the decisive trick).} The museum is a graph, so $\approx 80\%$
+of the $\sim$100 action indices are illegal at any state. We set the illegal logits to
+$-\infty$ \emph{before} the softmax,
+\[
+\pi_\theta(a\mid s)=\frac{e^{\,z_a}\,\ind[a\in\Acal(s)]}{\sum_{a'\in\Acal(s)} e^{\,z_{a'}}},
+\]
+so the policy never spends probability mass on impossible moves. This is exactly the
+same idea as the masked $\max$ in the toy Q-update, lifted into the softmax.
+
+\begin{lstlisting}
+logits[~legal_actions(state)] = -inf      # zero out illegal moves...
+pi = softmax(logits)                        # ...so pi has support only on A(s)
+
+MaskablePPO("MlpPolicy", env,
+    learning_rate = lambda p: 1e-4 + 1e-4 * p,   # linear 2e-4 -> 1e-4
+    n_steps = 4096, batch_size = 512, n_epochs = 8,
+    gamma = 0.995, gae_lambda = 0.98, clip_range = 0.2,
+    ent_coef = 0.005, policy_kwargs = {"net_arch": [256, 256]})
+\end{lstlisting}
+
+\paragraph{Curriculum (train\_maskable\_ppo.py:227).} The crowd is ramped over three
+stages, $0.36\!\to\!0.64\!\to\!1.0$ of peak (15\%/35\%/50\% of the step budget); episodes
+are always the full 615-minute day, and training uses random start rooms (exploring
+starts). \textbf{Evaluation} uses common random numbers (CRN): every model is scored on
+the identical fixed crowds (seeds $900000{+}i$), so reward gaps reflect the policy, not
+luck.
+
+\subsection{The controls: unmasked PPO and DQN (\file{agents/train\_ablations.py})}
+
+To isolate the value of masking and of the algorithm family, two controls share the
+environment, reward, budget, and CRN evaluation.
+
+\paragraph{Unmasked PPO.} Identical PPO hyperparameters and curriculum, but \emph{no}
+mask: it may select any of the $\sim$100 actions and pays \co{invalid\_action\_penalty}
+$=-0.4$ for illegal ones, which it must learn to avoid (wasting gradient).
+
+\paragraph{DQN (value-based, off-policy).} Replaces the table with $Q(s,a;\theta)$ and
+minimises the squared Bellman error against a \emph{frozen target network} $\theta^-$,
+sampling decorrelated transitions from a replay buffer $\mathcal{D}$:
+\[
+L(\theta)=\E_{(s,a,r,s')\sim\mathcal{D}}\Big[\big(\,r+\gamma\max_{a'}Q(s',a';\theta^-)-Q(s,a;\theta)\,\big)^2\Big].
+\]
+
+\begin{lstlisting}
+DQN("MlpPolicy", env, learning_rate = 2.5e-4,
+    buffer_size = 200_000, batch_size = 128, learning_starts = 5_000,
+    gamma = 0.995, policy_kwargs = {"net_arch": [256, 256]})
+# replay buffer  -> breaks temporal correlation between consecutive minutes
+# target network -> a frozen Q for the bootstrapped max (a stationary target)
+\end{lstlisting}
+
+\noindent The two innovations PPO does \emph{not} need: it is on-policy (fresh rollouts,
+no replay) and has no bootstrapped $\max$ in the actor loss (no target network); the clip
+handles its only instability, the policy step size. The overestimation that the target
+$\max$ can cause is exactly why DQN is the crowd-fragile, high-variance competitor in our
+results, and why Double-Q (above) exists.
+
+% =============================================================================
+\section{Part III. The RAMA booking agents (the centerpiece)}
+% =============================================================================
+
+\file{RamaArtLoverEnv} (\file{environment/rama\_art\_lover\_env.py}) wraps the core env.
+The visitor already knows the map; the genuine decision is the \emph{reservation}: how
+far ahead to book, which masterpieces, and how to pace the visit to hit each booked
+window. \file{RamaTouristEnv} is the same env with the tourist's taste swapped in.
+
+\subsection{A two-phase MDP}
+
+\paragraph{Phase 1, booking.} One lead-time choice then a book/decline choice per
+masterpiece; no museum time passes. \textbf{Phase 2, the visit:} walk the museum (stay /
+move-on) and check in inside each booked window.
+
+\paragraph{State \ (\file{\_obs}, rama\_art\_lover\_env.py:278).} $o\in\R^{25}$, in four
+readable groups:
+\begin{itemize}
+\item \textbf{Where I am in the decision} (3 dims): the phase flag (booking vs walking), which masterpiece I am currently deciding on, and the lead time chosen so far.
+\item \textbf{The booking screen} (4 dims): one availability number per lead option (1\,/\,7\,/\,21\,/\,35 days), each saying whether a slot is still open at that lead \emph{given today's crowd}. Reading this is how the agent learns ``book earlier when busier''.
+\item \textbf{What I have locked in} (6 dims): the three window start-times I hold, and three flags for whether I have checked in to each.
+\item \textbf{My situation right now} (12 dims): museum time; the access read of the room I am standing in (is it a masterpiece, is it unbooked, can I enter now, minutes until its window opens); my three frozen arrival-time estimates (when I expect to reach each masterpiece); and the local readout of the current room (how drained it is, its importance, its crowd, and egress slack).
+\end{itemize}
+
+\paragraph{Actions \ (rama\_art\_lover\_env.py:78).} \co{Discrete(4)}, reinterpreted by phase:
+\[
+a\;\mapsto\;\begin{cases}
+\text{lead}=\text{LEAD\_DAYS}[a]\in\{1,7,21,35\}\ \text{days} & \text{booking step }0,\\[2pt]
+\text{book}\ (a{=}0)\ \text{or decline}\ (a{=}1)\ \text{of masterpiece }g & \text{booking steps }1,2,3,\\[2pt]
+\text{stay}\ (a{=}0)\ \text{or move-on}\ (a{=}1) & \text{walk phase.}
+\end{cases}
+\]
+
+\paragraph{The fill curve.} A slot is bookable only if the lead time clears a
+crowd-dependent threshold, so a busier day forces a longer lead:
+\[
+\text{available}(g,\text{lead})=\ind\!\Big[\,\text{lead}\ \ge\ \text{lead}_{\max}\cdot p(g)\cdot \tfrac{\text{daily\_total}}{2500}\,\Big].
+\]
+
+\subsection{Reward / objective}
+
+The total has two parts. \textbf{During the walk}, the agent simply collects the
+\emph{core} reward of Part II, so a booked masterpiece pays its full $\sim$30-minute
+value the moment it checks in (the $r_{\text{checkin}}$ bonus plus the usual
+$r_{\text{art}}$). \textbf{At booking}, three extra terms are added
+(rama\_art\_lover\_env.py:355):
+\[
+\boxed{\;r_{\text{book}}=\;-\,d_{\text{decline}}\,n_{\text{decline}}\;-\;\underbrace{k_{\text{mm}}\!\!\sum_{g\in\mathcal{B}}\big|\,w_g-\hat t_g\,\big|}_{\text{immediate off-pace penalty}}\;-\;d_{\text{noshow}}\,n_{\text{noshow}}\;}
+\]
+\begin{itemize}
+\item \textbf{decline} ($-d_{\text{decline}}$ per masterpiece skipped): a fixed regret for not booking a famous room (active only for a subtype that is allowed to decline).
+\item \textbf{off-pace mismatch} (the decisive term): for each booked masterpiece $g$, the gap between the slot it actually got, $w_g$, and the time the agent expects to be there, $\hat t_g$, summed and charged \emph{at the moment of committing}. In words: if you book a slot far from when you will really arrive, you feel it immediately. This is what turns the otherwise days-delayed ``book early'' lesson into a same-step gradient the optimiser can follow.
+\item \textbf{no-show} ($-d_{\text{noshow}}$ per masterpiece booked but never entered): reserving a slot then failing to reach it in time is penalised.
+\end{itemize}
+Here $\mathcal{B}$ is the set of booked masterpieces, $w_g$ the resolved window start, and
+$\hat t_g$ the agent's frozen arrival estimate for $g$. Weights: $k_{\text{mm}}=2$,
+$d_{\text{decline}}=200$ (art) $/\,50$ (tourist), $d_{\text{noshow}}=100$ (art) $/\,80$
+(tourist); discount $\gamma=0.999$ (the payoff lands far downstream, at check-in).
+
+\begin{lstlisting}
+if phase == "booking":
+    if step == 0:
+        lead = LEAD_DAYS[a]                       # {1, 7, 21, 35} days
+    else:
+        g = GROUPS[step - 1]                      # bott, leo, raph
+        book[g] = not (a == 1 and allow_decline)  # decline only if a subtype allows it
+        if last_masterpiece:
+            commit()                              # resolve + space the windows
+            mismatch = sum(abs(window[g] - est[g]) for g in booked)
+            step_r   = -decline_penalty * n_declined  -  mismatch_k * mismatch
+else:  # walk phase: delegate to the core env
+    inner_action = MOVE_ON if a == 1 else STAY
+    _, reward, done, _, _ = self.inner.step(inner_action)   # core reward of Part II
+
+# crowd-dependent availability seen on the booking screen:
+def available(slot, lead):
+    return lead >= LEAD_MAX * popularity(slot) * (daily_total / 2500)
+\end{lstlisting}
+
+\subsection{Policy as a type, not coercion}
+
+For both profiles \co{allow\_decline = False}: a free decline button is an RL do-nothing
+trap (the optimiser collapses to declining all three, since skipping is immediately safe
+and the payoff is delayed). So ``always books the three masterpieces'' is a \emph{type
+characterisation} (nobody flies to Florence to skip Botticelli, Leonardo and Raphael);
+the genuine learned decision is the \emph{lead time}. The arrival prior $\hat t_g$ is
+computed once from reference walks and \emph{frozen} (\co{\_arr\_alpha = 0}) to avoid a
+self-referential runaway.
+
+\subsection{Art lover vs tourist: only the knobs differ (\file{rama\_tourist\_env.py})}
+
+The tourist subclasses the art lover, so the state, action space, policy form, and reward
+structure are identical. Only the character changes:
+
+\begin{center}
+\renewcommand{\arraystretch}{1.2}
+\footnotesize
+\begin{tabular}{@{}l l l@{}}
+\toprule
+\textbf{Knob} & \textbf{Art lover} & \textbf{Normal tourist} \\
+\midrule
+importance vector       & art-historical (masterpiece-concentrated) & name-recognition (famous rooms only) \\
+\co{dwell\_per\_importance} & $3.0$ (long, $\sim$30 min) & $1.4$ (short) \\
+\co{art\_crowd\_alpha}      & $2.0$ (crowd-averse) & $1.0$ (less averse) \\
+\co{decline\_penalty}       & $200$ & $50$ \\
+\co{noshow\_penalty}        & $100$ & $80$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{The matched baseline (\file{environment/planned\_route\_env.py})}
+
+The fair ``today's museum'' reference: \co{Discrete(2)} (stay / move-on), an
+$8$-dimensional state (drain, importance, density, at-target, fraction-of-plan-done,
+time, egress, distance-to-next), and the \emph{core} reward with \emph{no} interventions
+and no booking. Same visitor character, trained and evaluated per crowd, so the booking
+agent's gain is measured against an equally-optimised walk, not a straw man.
+
+% =============================================================================
+\section*{One-line summary}
+% =============================================================================
+\addcontentsline{toc}{section}{One-line summary}
+\noindent
+There are two reward sources, \file{q\_learning.py:419} (toy) and
+\file{uffizi\_env.py:833} (everything deep); the booking agents add the three terms in
+\file{rama\_art\_lover\_env.py:355}. There are two algorithm families, value-based
+(Q-learning $\to$ Double-Q $\to$ DQN) and policy-based (PPO $\to$ MaskablePPO), and
+masking is the thread that runs through both, the masked $\max$ in the toy and the masked
+softmax in MaskablePPO.
+
+\end{document}
