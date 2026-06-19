@@ -42,8 +42,10 @@
 \newcommand{\pic}[1]{../outputs/assets/masterpieces/#1}
 
 % Body font for content frames and roomy paragraph spacing, so slides fill.
-\newcommand{\body}{\small}
-\setlength{\parskip}{0.45em}
+% Default body is \large so trimmed slides still fill; dense slides override to \small.
+\newcommand{\body}{\large}
+\newcommand{\bodydense}{\small}
+\setlength{\parskip}{0.7em}
 
 % Symptom / Diagnosis / Fix / Lesson, spread by \vfill so it fills top-to-bottom.
 \newcommand{\sdfl}[4]{%
@@ -111,15 +113,14 @@ Take that museum as fixed; find the \emp{optimal} visitor.
 \end{itemize}
 \end{column}
 \end{columns}
-\vfill
-\centering \emp{Gate first, then the optimal visit.}
 \end{frame}
 
 % --- 4. Foundations: the toy ------------------------------------------------
 \begin{frame}{Foundations: a tabular proof of concept}
-\body
+\large
+\vfill
 \begin{columns}[c]
-\begin{column}{0.46\textwidth}
+\begin{column}{0.5\textwidth}
 We prove it on a \emp{12-room toy} with an exact value table. Crowds wave up and down, unannounced.
 \vfill
 Tabular \emp{Q-learning} learns \emp{temporal arbitrage}: enter in the lull around the crowd peak.
@@ -127,13 +128,12 @@ Tabular \emp{Q-learning} learns \emp{temporal arbitrage}: enter in the lull arou
 \emp{Across five seeds:} Q and \emp{Double-Q} \emp{tie} ($83.3$ vs $83.1$). A deterministic toy has no
 overestimation bias to remove, exactly as theory predicts.
 \end{column}
-\begin{column}{0.54\textwidth}\centering
+\begin{column}{0.48\textwidth}\centering
 \includegraphics[width=\linewidth]{\fig{13_baseline_comparison.png}}\\[0.4em]
 \footnotesize Learning beats every hand-written rule; the rules even go negative by mistiming the crowd.
 \end{column}
 \end{columns}
 \vfill
-\centering \emp{Timing, learned from samples, beats every hand-written rule.}
 \end{frame}
 
 % --- 5. Scaling + masking ---------------------------------------------------
@@ -143,12 +143,13 @@ The real museum breaks the table: ninety-eight rooms, $\sim$100 moves per step, 
 numbers. We swap it for a neural net (\emp{MaskablePPO}; PPO and DQN as controls).
 \vfill
 \begin{block}{Action masking: the rulebook}
-From any room only a few moves are legal, yet the net has $\sim$100 outputs. We set illegal moves to
-$-\infty$ before the softmax: zero probability, no gradient wasted on them.
-This state-dependent action set is our single biggest design choice.
+From any room only a few moves are legal, yet the net has $\sim$100 outputs. We set every illegal move
+to $-\infty$ before the softmax, so it gets exactly zero probability. No gradient is wasted on moves
+that do not exist; this state-dependent action set is our single biggest design choice.
 \end{block}
 \vfill
-\centering \emp{Decisive exactly where the decision is hardest.}
+\[ \pi(a\mid s)=\frac{e^{z_a}\,\mathbf{1}[a\in\mathcal{A}(s)]}{\sum_{b}e^{z_b}\,\mathbf{1}[b\in\mathcal{A}(s)]}. \]
+\vfill
 \end{frame}
 
 % --- 6. The reframe ---------------------------------------------------------
@@ -173,25 +174,25 @@ A visitor has a map and guide, so the route is a shortest path. The real decisio
 \begin{frame}{Result: book early when busier and it pays}
 \body
 \begin{columns}[c]
-\begin{column}{0.62\textwidth}\centering
+\begin{column}{0.64\textwidth}\centering
 \includegraphics[width=\linewidth]{\fig{21_booking_grid.png}}
 \end{column}
-\begin{column}{0.37\textwidth}\centering
+\begin{column}{0.35\textwidth}\centering
 \includegraphics[width=\linewidth]{\fig{22_book_early_curve.png}}
 \end{column}
 \end{columns}
 \vfill
-Both profiles beat the matched no-booking baseline at every crowd level (five seeds, mean$\pm$std):
-\good{+20\% to +39\%} for the art lover, \good{+36\% to +38\%} for the tourist, with all three
-masterpieces secured. The learned lead time \emp{rises with the crowd} (right): book-early-when-busier
+Both profiles beat the matched no-booking baseline at every crowd level: \good{+20\% to +39\%} for the
+art lover, \good{+36\% to +38\%} for the tourist, all three masterpieces secured. The learned lead time
+\emp{rises with the crowd} (right): book-early-when-busier
 is not coded in, it emerges from the reward, because booking late at a packed museum misses the rooms.
 \end{frame}
 
 % --- 8. The visit on the floor plan -----------------------------------------
 \begin{frame}{What a visit looks like, on the real floor plan}
-\body
+\bodydense
 \centering
-\includegraphics[width=0.74\linewidth]{\fig{23_walks_art_intervened.png}}
+\includegraphics[width=0.78\linewidth]{\fig{23_walks_art_intervened.png}}
 \vfill
 \raggedright
 \emp{The art lover's learned visit, eight rollouts per panel, across the three crowd levels.} It is
@@ -202,9 +203,9 @@ closing. Every step is a one-hop move to a neighbouring room, so there are no te
 
 % --- 9. Algorithm comparison -----------------------------------------------
 \begin{frame}{Which algorithm wins and why masking matters}
-\body
+\bodydense
 \centering
-\includegraphics[width=0.62\linewidth]{\fig{15_algorithm_comparison.png}}
+\includegraphics[width=0.72\linewidth]{\fig{15_algorithm_comparison.png}}
 \vfill
 \raggedright
 \begin{itemize}\setlength\itemsep{0.35em}
@@ -219,7 +220,7 @@ closing. Every step is a one-hop move to a neighbouring room, so there are no te
 
 % --- 10. Challenge 1 --------------------------------------------------------
 \begin{frame}{1: an unlearnable reward}
-\body
+\bodydense
 \sdfl
 {The agent never left, squatting in one room until closing. Zeroing all reward for not exiting made
 it \emp{worse}.}
@@ -232,7 +233,7 @@ bonus for leaving.}
 
 % --- 11. Challenge 2 --------------------------------------------------------
 \begin{frame}{2: it could not see what it was deciding}
-\body
+\bodydense
 \sdfl
 {The rule ``stay until satisfied, then move'' never stabilised; dwell times wobbled at random.}
 {The right action depended on value already taken from the room, \emp{not in the state}: a hidden
@@ -244,7 +245,7 @@ the policy can read.}
 
 % --- 12. Challenge 3 --------------------------------------------------------
 \begin{frame}{3: reward shaping that backfired}
-\body
+\bodydense
 \sdfl
 {Well-meant terms backfired: a ``boredom'' penalty caused \emp{looping}, a harsh crowd penalty made a
 \emp{fake art lover}.}
@@ -257,7 +258,7 @@ no boredom penalty, satiation alone stops lingering.}
 
 % --- 13. Challenge 4 (the best trick) ---------------------------------------
 \begin{frame}{4: the do-nothing trap and the book-early trick}
-\body
+\bodydense
 \sdfl
 {Given a free ``decline'' button, \emp{both} profiles declined all three masterpieces; book-early
 stayed only \emp{half} learned.}
@@ -275,15 +276,13 @@ decisive trick.}
 A single training run can be lucky or unlucky, so a single number can mislead. We retrained every cell
 under \emp{five} training seeds and report the mean and the spread across them.
 \vfill
-\begin{itemize}\setlength\itemsep{1.0em}
+\begin{itemize}\setlength\itemsep{2.6em}
 \item \emp{The tourist is rock-stable}: essentially zero variance at every crowd level.
 \item \emp{The art lover degrades as the museum fills}: the gain falls from $+39\%$ to $+29\%$ to $+20\%$.
 \item \emp{The catch:} at \emp{maximum crowd} the art lover is \emp{bimodal}, four of the five seeds
       reach $\sim$\good{+41\%} but one \bad{collapses} below baseline, so the cell averages \warn{+20\%}
       with a wide error bar. We report the spread, not the lucky seed.
 \end{itemize}
-\vfill
-\centering \emp{Reporting the spread is part of the result, not a footnote.}
 \end{frame}
 
 % --- 15. Density payoff (full page, after the interventions) ---------------
@@ -292,7 +291,7 @@ under \emp{five} training seeds and report the mean and the spread across them.
 \begin{column}{0.7\textwidth}\centering
 \includegraphics[height=0.86\textheight]{\fig{36_density_heatmap_intervened.png}}
 \end{column}
-\begin{column}{0.3\textwidth}\body
+\begin{column}{0.3\textwidth}\bodydense
 \emp{Top:} the museum as-is.\par\vfill
 \emp{Bottom:} all eleven interventions, same colour scale.\par\vfill
 The masterpiece bands (\code{A9}, \code{A36}) cool from red toward orange and the day spreads over more hours.\par\vfill
@@ -303,11 +302,11 @@ The masterpiece bands (\code{A9}, \code{A36}) cool from red toward orange and th
 
 % --- 16. Scoreboard and conclusion -----------------------------------------
 \begin{frame}{What worked, what did not, what is debatable}
-\body
+\bodydense
 \begin{columns}[T]
 \begin{column}{0.5\textwidth}
 {\good{\textbf{Worked best}}}
-\begin{itemize}\setlength\itemsep{0.3em}
+\begin{itemize}\setlength\itemsep{1.15em}
 \item \emp{Action masking}, the biggest lever.
 \item \emp{Reframing} navigation into booking.
 \item \emp{An immediate proxy} for a delayed reward.
@@ -317,7 +316,7 @@ The masterpiece bands (\code{A9}, \code{A36}) cool from red toward orange and th
 \end{column}
 \begin{column}{0.5\textwidth}
 {\bad{\textbf{Worked worst}}}
-\begin{itemize}\setlength\itemsep{0.3em}
+\begin{itemize}\setlength\itemsep{1.15em}
 \item \emp{All-or-nothing exit wipe}: zero gradient.
 \item \emp{A free decline button}: a do-nothing trap.
 \item \emp{A harsh crowd penalty}: a fake art lover.
@@ -342,6 +341,7 @@ curve is calibrated, not fitted; the as-is museum hides the real entry choice (b
 % APPENDIX: backup slides for the Q&A (kept out of the main 17-slide count)
 % =============================================================================
 \appendix
+\renewcommand{\body}{\small}  % dense backup slides stay compact
 \setbeamertemplate{footline}{%
   \leavevmode\hbox{%
     \begin{beamercolorbox}[wd=.5\paperwidth,ht=2.5ex,dp=1ex,center]{author in head/foot}%
@@ -355,14 +355,14 @@ curve is calibrated, not fitted; the as-is museum hides the real entry choice (b
 {\setbeamertemplate{footline}{}\begin{frame}[c]
 \centering
 {\Huge Appendix}\\[0.6em]
-{\large Backup slides for questions}\\[1.2em]
-\emp{Machinery, full results and technical detail we keep on hand for the Q\&A.}
+{\large Backup slides for questions}
 \end{frame}}
 
 % --- A1. Three MDPs at a glance ---------------------------------------------
 \begin{frame}{Backup: the three MDPs at a glance}
-\body
+\vfill
 \centering\small
+\renewcommand{\arraystretch}{2.4}
 \begin{tabular}{lllll}
 \toprule
 Setting & State & Action & Reward & $\gamma$\\
@@ -374,10 +374,11 @@ RAMA (MaskablePPO, & $25$ numbers & lead / book / pace & booking per-step & $0.9
 \bottomrule
 \end{tabular}
 \vfill
-\raggedright
+\raggedright\normalsize
 \emp{The same five elements in every setting; what changes is the problem the agent is attached to,
 plus how the state is stored and the actions screened. PPO and DQN appear twice, once as a no-booking
 walk (the baselines) and once as booking agents; MaskablePPO only on RAMA.}
+\vfill
 \end{frame}
 
 % --- A2. The as-is 8-number state -------------------------------------------
@@ -386,7 +387,7 @@ walk (the baselines) and once as booking agents; MaskablePPO only on RAMA.}
 The visitor's local view on the planned walk (natural units; the network sees each scaled to about
 $[0,1]$):
 \vfill
-\begin{enumerate}\setlength\itemsep{0.15em}
+\begin{enumerate}\setlength\itemsep{0.55em}
 \item \emp{Room-value drain}: minutes absorbed vs the room's worth ($\sim$$3$ min per importance point).
 \item \emp{Room value}: importance, $1$ to $10$.
 \item \emp{Density}: how full the room is, percent of capacity.
@@ -405,7 +406,7 @@ $[0,1]$):
 \body
 A two-phase episode (a booking screen, then the walk), grouped:
 \vfill
-\begin{itemize}\setlength\itemsep{0.15em}
+\begin{itemize}\setlength\itemsep{0.55em}
 \item \emp{Booking position} ($3$): phase flag, which of $4$ decisions, lead chosen (days).
 \item \emp{Booking screen} ($4$): slots free at lead $1$/$7$/$21$/$35$ days (out of $8$).
 \item \emp{Time of day} ($1$): minute of the $720$-minute day.
@@ -421,29 +422,26 @@ A two-phase episode (a booking screen, then the walk), grouped:
 
 % --- A4. Actions and masking ------------------------------------------------
 \begin{frame}{Backup: actions and action masking}
-\body
-\begin{columns}[T]
-\begin{column}{0.5\textwidth}
+\large
+\vfill
 \textbf{Actions per setting}
-\begin{itemize}\setlength\itemsep{0.4em}
+\begin{itemize}\setlength\itemsep{1.0em}
 \item Toy / as-is: \texttt{Discrete(2)}, stay or move on.
 \item RAMA: \texttt{Discrete(4)}. Booking phase: a lead $\in\{1,7,21,35\}$ or book/decline. Walk phase:
 stay or move on.
 \end{itemize}
 \vfill
-\textbf{Masking (MaskablePPO)}: set illegal logits to $-\infty$ before the softmax,
-\[ \pi(a\mid s)=\frac{e^{z_a}\,\mathbb{1}[a\in\mathcal{A}(s)]}{\sum_{b}e^{z_b}\,\mathbb{1}[b\in\mathcal{A}(s)]}, \]
-so no gradient is spent on moves that do not exist.
-\end{column}
-\begin{column}{0.5\textwidth}\centering
-\includegraphics[width=\linewidth]{\fig{14_deep_rl_masking_ablation.png}}
-\end{column}
-\end{columns}
+\textbf{Masking (MaskablePPO).} Set the logits of illegal moves to $-\infty$ before the softmax, so they
+get exactly zero probability:
+\vfill
+\[ \pi(a\mid s)=\frac{e^{z_a}\,\mathbf{1}[a\in\mathcal{A}(s)]}{\sum_{b}e^{z_b}\,\mathbf{1}[b\in\mathcal{A}(s)]}. \]
+\vfill
 \end{frame}
 
 % --- A5. Reward functions ---------------------------------------------------
 \begin{frame}{Backup: the reward functions}
-\body
+\normalsize
+\vfill
 \textbf{Toy, per step.}
 $\dfrac{\text{importance}\times\text{novelty}}{1+\alpha_A\,\text{density}^2}-\text{step cost}$, with
 $\alpha_A=6$, step $0.5$, exit bonus $+15$, no-exit penalty $-50$ (hand-tuned shaping; the relative
@@ -454,17 +452,16 @@ a gentle crowd $\alpha=0.5$, plus closing-time pressure, a completion bonus and 
 \vfill
 \textbf{Booking terms (RAMA only).} an \emp{immediate off-pace penalty} at commit time (a local proxy
 for the distant cost of a badly-timed slot) plus a no-show penalty for a masterpiece booked but missed.
-\vfill
-\centering \emp{Minimal shaping by design: every added term is something the optimiser will try to game.}
 \end{frame}
 
 % --- A6. Booking phase and fill curve ---------------------------------------
 \begin{frame}{Backup: the booking phase and the fill curve}
-\body
+\large
+\vfill
 \begin{columns}[c]
 \begin{column}{0.52\textwidth}
 \textbf{Two-phase episode}
-\begin{itemize}\setlength\itemsep{0.4em}
+\begin{itemize}\setlength\itemsep{1.0em}
 \item Booking (no time passes): pick a \emp{lead time} ($1$/$7$/$21$/$35$ days), then book each
 masterpiece.
 \item Windows committed near the expected arrival; then the minute-by-minute walk.
@@ -477,12 +474,15 @@ three weeks ahead, \good{$8$} a month ahead. Book late, miss the masterpiece.
 \includegraphics[width=\linewidth]{\fig{22_book_early_curve.png}}
 \end{column}
 \end{columns}
+\vfill
 \end{frame}
 
 % --- A7. Full multi-seed table ----------------------------------------------
 \begin{frame}{Backup: full booking results, five seeds (mean $\pm$ std)}
-\body
-\centering\small
+\small
+\vfill
+\centering
+\renewcommand{\arraystretch}{1.7}
 \begin{tabular}{llrrrr}
 \toprule
 Profile & Crowd & Baseline & Intervened & Gain & Check-ins\\
@@ -501,13 +501,14 @@ Tourist & $5000$ & $2680$ & $3685\pm0$ & $+38\%$ & $3.0/3$\\
 training seeds $\{1,3,7,42,202606\}$, each evaluated on six fixed common-random-number crowds. The art
 lover at max crowd is bimodal: four seeds reach $\sim$$+41\%$, one collapses, hence the wide band and
 the $2.6/3$ check-ins.}
+\vfill
 \end{frame}
 
 % --- A8. Algorithm comparison detail ----------------------------------------
 \begin{frame}{Backup: which algorithm and where it breaks}
 \body
 \centering
-\includegraphics[height=4.0cm]{\fig{15_algorithm_comparison.png}}
+\includegraphics[height=4.2cm]{\fig{15_algorithm_comparison.png}}
 \vfill
 \raggedright
 \begin{itemize}\setlength\itemsep{0.2em}
@@ -521,27 +522,24 @@ grows (a max over noisy values overestimates).
 
 % --- A9. Walks, art lover ---------------------------------------------------
 \begin{frame}{Backup: the learned walk, art lover}
-\body
+\vfill
 \centering
 \includegraphics[width=0.49\linewidth]{\fig{25_walks_art_baseline.png}}\hfill
-\includegraphics[width=0.49\linewidth]{\fig{23_walks_art_intervened.png}}
+\includegraphics[width=0.49\linewidth]{\fig{23_walks_art_intervened.png}}\\[10pt]
+{\normalsize Left: as-is. Right: under RAMA. Eight rollouts per panel across the three crowd levels; the
+masterpieces (gold stars) are taken in their booked windows, then a descent to Caravaggio and out.}
 \vfill
-\raggedright
-\emp{Eight rollouts per panel, across the three crowd levels. Left: as-is. Right: under RAMA, the
-masterpieces (gold stars) are taken in their booked windows, then a descent to Caravaggio and out.
-Every step is a one-hop move to a neighbouring room.}
 \end{frame}
 
 % --- A10. Walks, tourist ----------------------------------------------------
 \begin{frame}{Backup: the learned walk, tourist}
-\body
+\vfill
 \centering
 \includegraphics[width=0.49\linewidth]{\fig{26_walks_tourist_baseline.png}}\hfill
-\includegraphics[width=0.49\linewidth]{\fig{24_walks_tourist_intervened.png}}
+\includegraphics[width=0.49\linewidth]{\fig{24_walks_tourist_intervened.png}}\\[10pt]
+{\normalsize Left: as-is. Right: under RAMA. The tourist books all three masterpieces and stays
+rock-stable across seeds at every crowd level.}
 \vfill
-\raggedright
-\emp{Left: as-is. Right: under RAMA. The tourist books all three masterpieces and stays rock-stable
-across seeds at every crowd level.}
 \end{frame}
 
 % --- A11. Per-profile heatmaps ----------------------------------------------
@@ -560,66 +558,69 @@ spread each profile's masterpiece visits across the day.}
 
 % --- A12. Interventions and the gate ----------------------------------------
 \begin{frame}{Backup: the interventions and the director's gate}
-\body
-\centering
-\includegraphics[width=0.48\linewidth]{\fig{19_welfare_vs_revenue.png}}\hfill
-\includegraphics[width=0.48\linewidth]{\fig{07_museum_director_gate.png}}
 \vfill
-\raggedright
-\emp{The redesign is adopted only if welfare rises and revenue does not fall (the director's gate).
-The chosen portfolio of eleven Pigovian measures lifts welfare \good{$+31\%$} with revenue preserved.}
+\centering
+\includegraphics[width=0.44\linewidth]{\fig{19_welfare_vs_revenue.png}}\hfill
+\includegraphics[width=0.44\linewidth]{\fig{07_museum_director_gate.png}}\\[8pt]
+{\normalsize The redesign is adopted only if welfare rises and revenue does not fall (the director's
+gate). The chosen portfolio of eleven Pigovian measures lifts welfare \good{$+31\%$} with revenue
+preserved.}
+\vfill
 \end{frame}
 
 % --- A13. Robustness sweeps -------------------------------------------------
 \begin{frame}{Backup: robustness sweeps}
-\body
-\centering
-\includegraphics[width=0.32\linewidth]{\fig{31_sweep_typeb_welfare.png}}\hfill
-\includegraphics[width=0.32\linewidth]{\fig{33_sweep_volume_welfare.png}}\hfill
-\includegraphics[width=0.32\linewidth]{\fig{35_sweep_heterogeneity.png}}
 \vfill
-\raggedright
-\emp{We vary the Type-B (Instagram) share, the total daily volume and the crowd heterogeneity. The
-welfare gain from the redesign holds across the ranges we tried.}
+\centering
+\includegraphics[width=0.33\linewidth]{\fig{31_sweep_typeb_welfare.png}}\hfill
+\includegraphics[width=0.33\linewidth]{\fig{33_sweep_volume_welfare.png}}\hfill
+\includegraphics[width=0.33\linewidth]{\fig{35_sweep_heterogeneity.png}}\\[10pt]
+{\normalsize We vary the Type-B (Instagram) share, the total daily volume and the crowd heterogeneity.
+The welfare gain from the redesign holds across the ranges we tried.}
+\vfill
 \end{frame}
 
 % --- A14. Toy internals -----------------------------------------------------
 \begin{frame}{Backup: tabular toy internals}
-\body
-\centering
-\includegraphics[width=0.48\linewidth]{\fig{09_q_learning_curve.png}}\hfill
-\includegraphics[width=0.48\linewidth]{\fig{13_baseline_comparison.png}}
+\large
 \vfill
-\raggedright
+\centering
+\includegraphics[width=0.49\linewidth]{\fig{09_q_learning_curve.png}}\hfill
+\includegraphics[width=0.49\linewidth]{\fig{13_baseline_comparison.png}}
+\vfill
+\raggedright\normalsize
 \emp{Left: the learning curve, return climbing over episodes. Right: learning beats every hand-written
 rule. Across five seeds Q ($83.3\pm3.8$) and Double-Q ($83.1\pm3.7$) tie, since a deterministic toy has
 no overestimation bias for Double-Q to remove.}
+\vfill
 \end{frame}
 
 % --- A15. Training and evaluation setup -------------------------------------
 \begin{frame}{Backup: training and evaluation setup}
-\body
+\normalsize
+\vfill
 \begin{columns}[T]
 \begin{column}{0.52\textwidth}
 \textbf{Deep RL (Stable-Baselines3).} \texttt{MlpPolicy} $[128,128]$, Adam LR $3\times10^{-4}$,
 $2048$ steps, batch $256$, $10$ epochs, GAE $\lambda=0.98$, clip $0.2$, entropy $0.01$.
-\begin{itemize}\setlength\itemsep{0.2em}
+\begin{itemize}\setlength\itemsep{0.9em}
 \item As-is baselines (PPO): $150$k steps, $\gamma$ $0.995$/$0.997$.
 \item RAMA arms: $100$k steps, $\gamma=0.999$.
 \end{itemize}
 \end{column}
 \begin{column}{0.48\textwidth}
 \textbf{Toy.} tabular Q / Double-Q, $\varepsilon$-greedy, $\gamma=0.99$, $25$k episodes.
-\vspace{0.5em}
+\vspace{1.4em}
 
 \textbf{Seeds and evaluation}
-\begin{itemize}\setlength\itemsep{0.2em}
+\begin{itemize}\setlength\itemsep{0.9em}
 \item $5$ training seeds $\{1,3,7,42,202606\}$.
 \item Eval on $6$ fixed crowds (\texttt{900000} to \texttt{900005}), deterministic, common random numbers.
 \item Crowd levels $500$ / $2500$ / $5000$ visitors a day.
 \end{itemize}
 \end{column}
 \end{columns}
+\vfill
 \end{frame}
 
 \end{document}
