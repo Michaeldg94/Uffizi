@@ -445,6 +445,18 @@ egress slack to the exit. They let the one network handle the walking part of th
 it already learned on the as-is task.
 \end{description}
 
+\paragraph{A record of the decision, not a live countdown.} One thing trips people up in the snapshots
+below: once the agent is \emph{walking}, the lead still reads $21$ days and the booking screen still
+shows its fractions, rather than dropping to zero. That is deliberate. These slots are a \emph{record of
+the booking decision}, not a clock. The lead is \emph{how far ahead you booked}, a fact fixed for the
+whole episode; the quantity that actually counts down is the clock (slot 8, time of day), which climbs
+toward $1$ as closing nears. The booking screen is the day's \emph{fill curve}, how full each lead time
+was, which depends on the crowd and not on the minute, so it stays constant from the booking screen to
+the exit; zeroing it would falsely claim no slot was ever available, when you booked one. The
+observation is a single fixed-size vector reused in both phases, so during the walk these booking slots
+simply keep their committed values while the policy leans on the clock, the windows held, the check-ins,
+the access read and the room tail.
+
 \paragraph{The same vector at three later moments.} On the opening screen every later slot was zero.
 To watch the machinery move, here is the same $25$-number vector at three points further on, grouped by
 block (semicolons separate the blocks, in the order of the list above).
@@ -461,24 +473,46 @@ Nothing is booked yet, so every other block is unchanged.
 \begin{center}\footnotesize\ttfamily
 [0, 1, 0.6; 0.12, 0.38, 0.62, 1; 0.19; 0.22, 0.61, 0.65; 1,0,0; 1,0,1,-0.18; 0.23,0.57,0.66; 0.02, 1, 1, 0.80]
 \end{center}
-The phase flag is now $0$ (walking) and the booking is done (step $1$). It is minute $139$ of the
-$720$-minute day (time $0.19$). The three booked windows now show their clock times, minutes $160$,
-$440$, $470$ ($0.22$, $0.61$, $0.65$ of the day) and the Botticelli check-in flag has flipped to $1$.
-The access read lights up: this is a gated masterpiece ($1$), it is not unbooked ($0$), you may
-appreciate it now ($1$) and your window opened a little earlier (a slightly negative time-to-open,
-$-0.18$). The room tail is the punchline: importance $10$, the maximum (seen as $1.0$) and a room packed
-to capacity ($1.0$), yet because you are inside your reserved window you collect the reward regardless of
-the crush.
+Reading it block by block:
+\begin{itemize}\setlength\itemsep{0.15em}
+\item \emph{Booking position $0,\,1,\,0.6$:} phase flag $0$, so the agent is now \emph{walking}, not
+booking; step $1$, all four booking decisions are made; lead still $21$ days ($0.6$).
+\item \emph{Booking screen $0.12,\,0.38,\,0.62,\,1$:} unchanged from the screen and now just history, $1$
+of $8$ slots free a day ahead through all $8$ a month ahead.
+\item \emph{Time $0.19$:} minute $139$ of the $720$-minute day, early in the visit.
+\item \emph{Windows held $0.22,\,0.61,\,0.65$:} the three booked slots sit at minutes $160$, $440$, $470$.
+\item \emph{Check-ins $1,\,0,\,0$:} Botticelli is collected; Leonardo and Raphael are still to come.
+\item \emph{Access read $1,\,0,\,1,\,-0.18$:} this room \emph{is} a gated masterpiece ($1$); it is
+\emph{not} unbooked ($0$, you hold a reservation); you may enter \emph{now} ($1$); the minutes-to-open
+is negative ($-0.18$), so your window is already open.
+\item \emph{Pace prior $0.23,\,0.57,\,0.66$:} the frozen estimate that it reaches the three masterpieces
+near minutes $163$, $412$, $472$.
+\item \emph{Room tail $0.02,\,1,\,1,\,0.80$:} you have just arrived ($2\%$ drained); the room is
+importance $10$, the maximum (value $1.0$), packed to capacity ($1.0$), yet because you are inside your
+booked window you collect the reward anyway; about $573$ minutes of exit slack remain ($0.80$).
+\end{itemize}
 
 \emph{(3) Inside Caravaggio} (room \texttt{E4}), near closing:
 \begin{center}\footnotesize\ttfamily
 [0, 1, 0.6; 0.12, 0.38, 0.62, 1; 0.94; 0.22, 0.61, 0.65; 1,1,1; 0,0,0,0; 0.23,0.57,0.66; 0.04, 0.74, 0.13, 0.05]
 \end{center}
-It is now minute $679$ of the $720$-minute day (time $0.94$), almost closing; all three check-in flags
-read $1$: every masterpiece is done. The access read is back to all zeros, because Caravaggio is not a
-gated room, you walk straight in; its importance is still high ($7.4$, seen as $0.74$) while it is only
-$13\%$ full ($0.13$). The egress slack has fallen to $0.05$ ($\approx37$ minutes of spare time): the day
-is nearly over, which is exactly why the agent is on the first floor heading out.
+Reading it block by block:
+\begin{itemize}\setlength\itemsep{0.15em}
+\item \emph{Booking position $0,\,1,\,0.6$:} still walking, booking long done, lead $21$ days, exactly as
+before.
+\item \emph{Booking screen $0.12,\,0.38,\,0.62,\,1$:} unchanged history of the slots that were free.
+\item \emph{Time $0.94$:} minute $679$ of the $720$-minute day, almost closing.
+\item \emph{Windows held $0.22,\,0.61,\,0.65$:} the same three booked slots (minutes $160$, $440$, $470$),
+now all in the past.
+\item \emph{Check-ins $1,\,1,\,1$:} every masterpiece has been collected.
+\item \emph{Access read $0,\,0,\,0,\,0$:} all four are zero, because Caravaggio (\texttt{E4}) is \emph{not}
+a gated room; you walk straight in, so there is no reservation to read.
+\item \emph{Pace prior $0.23,\,0.57,\,0.66$:} the same frozen arrival estimate (it never changes during
+the visit).
+\item \emph{Room tail $0.04,\,0.74,\,0.13,\,0.05$:} freshly arrived ($4\%$ drained); a high-value room
+(importance $7.4$, seen as $0.74$) that is only $13\%$ full; the egress slack is down to $0.05$, about
+$37$ minutes of spare time, which is why the agent is on the first floor heading out.
+\end{itemize}
 
 \emph{What differs between the algorithms within the RAMA task} is only the machinery: DQN
 outputs a value $Q(s,a)$ and acts greedily; PPO outputs action probabilities and samples;
