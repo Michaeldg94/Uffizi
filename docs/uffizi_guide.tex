@@ -297,6 +297,16 @@ pressure, completion, step cost); no booking terms.
 This is the museum \emph{as it runs today}: you walk in and take the masterpieces as you find
 them, crowds and all. It is the fair opponent for the intervention.
 
+\paragraph{Reading the numbers: natural units, not fractions.} One thing to settle first. The agent
+reads every input as a number scaled to about $0$ to $1$ (egress runs $-1$ to $1$), because a neural
+network trains best when all its inputs sit on the same small scale. That scaling is exactly what makes
+the raw vector a wall of \texttt{0.xx} values that means little to a person. So below we give each slot
+in its \emph{natural unit} first, minutes, days, importance points, rooms still bookable, doorways, with
+the scaled number the network actually sees in brackets. Two facts anchor the units: the as-is day is
+$615$ minutes (about ten and a quarter hours); and a room is ``worth'' about $3$ minutes of dwell per
+point of importance, so a minor room rates a few minutes while a top masterpiece rates about half an
+hour.
+
 \paragraph{What the eight numbers look like.} At the door (room \texttt{A1}, opening time) the
 observation reads
 \[
@@ -306,42 +316,45 @@ Six moves later, standing in the first must-see room \texttt{A9}, the same eight
 \[ (0.21,\,0.78,\,0.02,\,1,\,0.00,\,0.01,\,0.98,\,0.00). \]
 Taking the slots one at a time, with the two readings side by side:
 \begin{description}[leftmargin=0pt,style=nextline,itemsep=3pt]
-\item[1. Room-value drain \textmd{(\texttt{A1} $0.00$, \texttt{A9} $0.21$)}] How much of what the
-\emph{current} room has to give you have already absorbed: the appreciation taken here so far divided
-by the room's ideal dwell time, capped at $1$. $0$ means you just walked in and have taken nothing;
-$1$ means you are sated and more minutes here are wasted; it climbs the longer you linger. At
-\texttt{A9} you are one-fifth of the way through ($0.21$). This is the agent's ``have I seen enough of
-this room?'' gauge; it is exactly the hidden progress variable whose absence once turned the visit
-into a POMDP, because without it the agent cannot tell a fresh room from a drained one.
-\item[2. Room value \textmd{(\texttt{A1} $0.22$, \texttt{A9} $0.78$)}] The cultural importance of the
-room underfoot on the graph's $1$ to $10$ scale, divided by $10$. \texttt{A1} is a minor room ($2.2$);
-\texttt{A9} is a masterpiece room ($7.8$). It tells the agent how much reward dwelling here can yield
-at all, so it spends its minutes where they pay.
-\item[3. Density \textmd{(\texttt{A1} $0.30$, \texttt{A9} $0.02$)}] The crowd in the current room right
-now, measured as occupancy over capacity and clipped at $1$ ($0$ empty, $1$ at or over capacity). Here
-\texttt{A9} happens to be nearly empty ($0.02$). Crowd discounts appreciation (the reward divides by
-$1+\alpha\,\text{density}^2$), so this is the signal the agent uses to hit a masterpiece in its lull,
-the temporal-arbitrage move.
-\item[4. On-target flag \textmd{(\texttt{A1} $0$, \texttt{A9} $1$)}] $1$ when you are standing in the
-\emph{target}, the next must-see your plan points to (the nearest must-see you have not yet finished),
-$0$ otherwise. At \texttt{A1} you are not there ($0$); at \texttt{A9} you have arrived ($1$). It lets
-the agent know when ``stay and appreciate'' is the right move rather than ``keep walking''.
-\item[5. Fraction of the plan done \textmd{(\texttt{A1} $0.00$, \texttt{A9} $0.00$)}] How many of your
-must-see rooms are fully appreciated, as a share of the whole plan: $0$ at the start, $1$ when every
-must-see is done and only the exit remains. Still $0$ at \texttt{A9} because you have only just reached
-the first one. It tells the agent how much of the visit's purpose is already banked.
-\item[6. Time of day \textmd{(\texttt{A1} $0.00$, \texttt{A9} $0.01$)}] Minutes elapsed divided by the
-length of the day: $0$ at opening, $1$ at closing. Crowds follow the clock and the museum shuts, so
-every decision is time-sensitive.
-\item[7. Egress slack \textmd{(\texttt{A1} $0.99$, \texttt{A9} $0.98$)}] Spare time to get out before
-closing: (minutes left in the day minus the walking distance to the nearest exit) over the day length,
-clipped to $[-1,1]$. Near $1$ is oceans of time; near $0$ means leave now; negative means you can no
-longer make it out. This is the \emph{dense} ``head for the door'' signal we added after the
-all-or-nothing exit penalty proved unlearnable.
-\item[8. Distance to the next room \textmd{(\texttt{A1} $0.10$, \texttt{A9} $0.00$)}] How far the next
-planned room is, in graph hops, divided by $20$ and capped at $1$. At \texttt{A1} the next must-see is
-two hops off ($2/20=0.10$); at \texttt{A9} you are already in it, so $0$. It tells the agent how much
-walking, time and crowd exposure stand between it and its next goal.
+\item[1. Room-value drain \textmd{(\texttt{A1}: nothing yet; \texttt{A9}: about $5$ of $23$ min)}] How
+many of a room's worthwhile minutes you have already used. The masterpiece \texttt{A9} is worth roughly
+$23$ minutes of dwell; you have so far absorbed about $5$ of them, which the network sees as
+$5/23\approx0.21$. At \texttt{A1}, fresh off the corridor, you have taken nothing ($0$). When this
+reaches $1$ you are sated and more time here is wasted. It is the agent's ``have I seen enough of this
+room?'' gauge; it is also the hidden progress variable whose absence once turned the visit into a POMDP,
+since without it the agent cannot tell a fresh room from a drained one.
+\item[2. Room value \textmd{(\texttt{A1}: importance $2.2$; \texttt{A9}: importance $7.8$)}] The room's
+cultural importance on a fixed $1$ to $10$ scale: \texttt{A1} is a minor room at $2.2$, \texttt{A9} a
+masterpiece at $7.8$. The network sees it divided by $10$ ($0.22$ and $0.78$). It tells the agent how
+much reward dwelling here can yield at all, so it spends its minutes where they pay.
+\item[3. Density \textmd{(\texttt{A1}: $30\%$ full; \texttt{A9}: $2\%$ full)}] How crowded the room is
+right now, as a percentage of its capacity: \texttt{A1} sits at $30\%$, \texttt{A9} is momentarily
+almost empty at $2\%$ (the network sees $0.30$ and $0.02$, capped at $1$ for an over-full room). Crowd
+discounts appreciation (the reward divides by $1+\alpha\,\text{density}^2$), so this is the signal the
+agent uses to hit a masterpiece in its lull, the temporal-arbitrage move.
+\item[4. On-target flag \textmd{(\texttt{A1}: no; \texttt{A9}: yes)}] A plain yes/no ($1$ or $0$): are
+you standing in the \emph{target}, the nearest must-see you have not yet finished? At \texttt{A1} no
+($0$), at \texttt{A9} yes ($1$). It lets the agent know when ``stay and appreciate'' is the right move
+rather than ``keep walking''.
+\item[5. Plan completed \textmd{(\texttt{A1}: $0$ done; \texttt{A9}: $0$ done)}] How many of your
+must-see rooms are finished, as a share of the whole list. Here $0$ at both moments, since you have only
+just reached the first; with, say, $2$ of $5$ done it would read $0.4$. It tells the agent how much of
+the visit's purpose is already banked.
+\item[6. Time of day \textmd{(\texttt{A1}: minute $0$; \texttt{A9}: minute $\sim$$6$)}] Where you are in
+the $615$-minute day: \texttt{A1} at opening (minute $0$), \texttt{A9} six minutes in, shown as a
+fraction of the day ($0.00$ and $0.01$); it reaches $1$ at closing. Crowds follow the clock and the
+museum shuts, so every decision is time-sensitive.
+\item[7. Egress slack \textmd{(\texttt{A1}: $\sim$$609$ spare min; \texttt{A9}: about the same)}] How
+comfortably you can still get out. The exit is a $6$-minute walk away and almost the whole $615$-minute
+day remains, so you have about $609$ minutes of spare time, essentially the entire day; the network sees
+$609/615\approx0.99$. Near $0$ means leave now, a negative value means you can no longer make it out
+before closing. This is the \emph{dense} ``head for the door'' signal we added after the all-or-nothing
+exit penalty proved unlearnable.
+\item[8. Distance to the next room \textmd{(\texttt{A1}: $2$ doorways; \texttt{A9}: $0$)}] How far your
+next planned room is, counted in doorways (each about a minute's walk): from \texttt{A1} the next
+must-see is $2$ doorways off, at \texttt{A9} you are already in it ($0$). The network sees
+doorways$/20$, so $2/20=0.10$. It tells the agent how much walking, time and crowd exposure stand
+between it and its next goal.
 \end{description}
 
 The second MDP is the \key{RAMA} task, what \texttt{MaskablePPO} solves (with unmasked PPO and
@@ -380,53 +393,56 @@ a busy day (\texttt{daily\_total}$=2500$), the art lover sees a vector that open
 \[
 \bigl(\underbrace{1}_{\text{booking}},\ \underbrace{0}_{\text{step}},\ \underbrace{1.0}_{\text{lead so far}};\ \underbrace{0.12,\,0.38,\,0.62,\,1.0}_{\text{slots open at lead }1,7,21,35\text{ d}};\ \underbrace{0.0}_{\text{time}};\ \dots\bigr).
 \]
-Those four boxed numbers are the crux of the task: book only a day ahead and just \emph{12\%} of the
-masterpiece windows are left; book a month ahead and \emph{all} of them are open. Here is the whole
-vector, block by block, with the values from this opening state:
+Those four boxed numbers are the crux of the task: book only a day ahead and just \emph{one of the
+eight} masterpiece slots is left; book a month ahead and \emph{all eight} are open. Here is the whole
+vector block by block, in natural units, with the scaled value the network sees in brackets:
 \begin{description}[leftmargin=0pt,style=nextline,itemsep=3pt]
-\item[Where you are in the booking phase \textmd{(slots 1 to 3: $1,\ 0,\ 1.0$)}] Three numbers that
-locate the agent in the four-step process just described. \emph{Slot 1} is a phase flag: $1$ while on
-the booking screen, $0$ once walking the museum (here $1$, still booking). \emph{Slot 2} says which of
-the four decisions is being made now, written as a fraction: $0$ for the lead-time decision, then
-$0.25$, $0.5$, $0.75$ for the three masterpieces in turn (here $0$, so the lead-time decision).
-\emph{Slot 3} is the lead time picked so far as a fraction of the $35$-day maximum: it begins at $1.0$
-(the full month, the default before any choice) and would drop if the agent picked a shorter lead, for
-instance $7$ days shows as $7/35=0.2$ (here $1.0$, nothing chosen yet).
-\item[The booking screen, how full each lead time is \textmd{(slots 4 to 7: $0.12,\ 0.38,\ 0.62,\ 1.0$)}]
-Four numbers, one per lead time, giving the \emph{fraction of masterpiece time-slots still free} if you
-reserve that far ahead: slot 4 is booking $1$ day before, slot 5 is $7$ days before, slot 6 is $21$
-days, slot 7 is $35$ days. They climb from left to right because slots fill up as the date nears. On
-this busy day only $12\%$ are still free if you wait until the day before, against $38\%$ a week ahead,
-$62\%$ three weeks ahead, $100\%$ a month ahead. This is the \emph{fill curve}; it is the whole reason
-the agent learns to reserve further ahead when the museum is busier, since leaving it late on a packed
-day means the good windows are already gone.
-\item[Time of day \textmd{(slot 8: $0.0$)}] Minutes elapsed over the length of the day, $0$ here
-because the visit has not started; it climbs to $1$ at closing once the agent is inside.
-\item[Windows you currently hold \textmd{(slots 9 to 11: $0,\ 0,\ 0$)}] Once the bookings are
-committed, each masterpiece has a reserved \emph{window}, the time-slot you are allowed to enter. These
-three numbers give the start of that window for Botticelli, Leonardo and Raphael, as a fraction of the
-day ($0.5$ would be midday), or $0$ if that masterpiece has no window yet. All $0$ here because the
-snapshot is the opening screen, before anything is booked.
-\item[Check-ins done \textmd{(slots 12 to 14: $0,\ 0,\ 0$)}] One flag per masterpiece, in the same
-order: $1$ once the visitor has actually stepped into that room \emph{during} its reserved window and
-collected the reward (a ``check-in''), $0$ until then. All $0$ before the visit has begun.
-\item[Access read of the room you are in \textmd{(slots 15 to 18: $0,\ 0,\ 0,\ 0$)}] Four numbers
-describing the \emph{current} room as a reservation: (15) is it one of the gated masterpiece rooms at
-all; (16) is it a masterpiece you did \emph{not} book, so you cannot get in; (17) may you appreciate it
-right now, because your window is open or you have already checked in; (18) how long until your window
-opens, as a fraction of the day. All four are $0$ whenever you are not in a masterpiece room, as here
-in \texttt{A1}; they come alive only inside a gated room, letting the agent connect ``I am getting
-nothing here'' to ``my reservation has not opened yet''.
-\item[Frozen pace estimate \textmd{(slots 19 to 21: $0.23,\ 0.57,\ 0.66$)}] During earlier training the
-agent measured \emph{when in the day it tends to reach} each masterpiece and kept a running average,
-then froze it. Here it expects to reach Botticelli about a quarter into the day ($0.23$), Leonardo just
-past the half ($0.57$), Raphael soon after ($0.66$), each as a fraction of the day. Being frozen (not
-updated mid-episode), they act as a stable estimate of the visitor's pace; the committed windows are
-placed near these times so the visitor can actually reach each slot rather than miss it.
-\item[The room-level tail \textmd{(slots 22 to 25: $0,\ 0.22,\ 0.05,\ 0.99$)}] The last four are
-exactly the room-level signals from the as-is state: how drained the current room is, its value
-(importance over $10$), its crowd and the egress slack to the exit. They let the one network handle the
-walking part of the episode, reusing what it already learned on the as-is task.
+\item[Where you are in the booking phase \textmd{(slots 1 to 3)}] Three numbers that locate the agent
+in the four-step process just described. \emph{Slot 1} is a phase flag: on the booking screen ($1$) or
+walking the museum ($0$); here on the screen. \emph{Slot 2} says which of the four decisions is being
+made, the lead time then the three masterpieces; the network sees the decision number over $4$, so $0$,
+then $0.25$, $0.5$, $0.75$ (here the lead-time decision, $0$). \emph{Slot 3} is the lead time chosen so
+far, \emph{in days}: it starts at the $35$-day maximum (the network sees $35/35=1.0$) and drops once the
+agent picks, for instance to $21$ days ($21/35=0.6$). Here nothing is chosen yet, so $35$ days ($1.0$).
+\item[The booking screen, slots still free at each lead time \textmd{(slots 4 to 7)}] There are $8$
+bookable time-slots for the masterpieces across the day. These four numbers say how many are still free
+if you reserve $1$, $7$, $21$ or $35$ days ahead. On this busy day: $1$ of the $8$ left a day before,
+$3$ of $8$ a week before, $5$ of $8$ three weeks before, all $8$ a month before, which the network sees
+as the fractions $0.12$, $0.38$, $0.62$, $1.0$. They rise the further ahead you book because slots fill
+up as the date nears. This is the \emph{fill curve}; it is the whole reason the agent learns to reserve
+further ahead when the museum is busier, since leaving it late on a packed day means the good windows
+are already gone.
+\item[Time of day \textmd{(slot 8)}] The clock during the visit, as a fraction of the $720$-minute
+redesigned day (longer than the $615$-minute as-is day, because extended opening hours are one of the
+interventions). $0$ here because the booking happens before the museum opens; it climbs toward $1$ at
+closing once the agent is walking.
+\item[Windows you currently hold \textmd{(slots 9 to 11)}] Once the bookings are committed, each
+masterpiece has a reserved \emph{window}, the time-slot you may enter. These three numbers give the
+\emph{clock time} of that window for Botticelli, Leonardo, Raphael, in minutes from opening. When this
+visitor books, they land at minutes $160$, $440$, $470$ (the network sees them over $720$, that is
+$0.22$, $0.61$, $0.65$); a masterpiece with no window yet shows $0$. All $0$ here, on the opening screen
+before anything is booked.
+\item[Check-ins done \textmd{(slots 12 to 14)}] One flag per masterpiece, in the same order: $1$ once
+the visitor has actually stepped into that room \emph{during} its reserved window and collected the
+reward (a ``check-in''), $0$ until then. All $0$ before the visit has begun.
+\item[Access read of the room you are in \textmd{(slots 15 to 18)}] Four numbers describing the
+\emph{current} room as a reservation: (15) is it one of the gated masterpiece rooms at all; (16) is it a
+masterpiece you did \emph{not} book, so you cannot get in; (17) may you appreciate it right now, because
+your window is open or you have already checked in; (18) how many minutes until your window opens, given
+as a fraction of the day, negative once it has already opened. All four are $0$ whenever you are not in
+a masterpiece room, as here in \texttt{A1}; they come alive only inside a gated room, letting the agent
+connect ``I am getting nothing here'' to ``my reservation has not opened yet''.
+\item[Frozen pace estimate \textmd{(slots 19 to 21)}] During earlier training the agent measured
+\emph{the minute of the day it tends to reach} each masterpiece and kept a running average, then froze
+it. Here it expects to reach Botticelli around minute $163$, Leonardo around $412$, Raphael around $472$
+(over the $720$-minute day, that is $0.23$, $0.57$, $0.66$). Being frozen, not updated mid-episode, they
+act as a stable estimate of the visitor's pace; the committed windows are placed near these minutes so
+the visitor can actually reach each slot rather than miss it.
+\item[The room-level tail \textmd{(slots 22 to 25)}] The last four are exactly the room-level signals
+from the as-is state, in the same natural units: how drained the current room is (minutes used of its
+worth), its importance ($1$ to $10$, seen over $10$), how full it is as a percentage of capacity and the
+egress slack to the exit. They let the one network handle the walking part of the episode, reusing what
+it already learned on the as-is task.
 \end{description}
 
 \paragraph{The same vector at three later moments.} On the opening screen every later slot was zero.
@@ -437,31 +453,32 @@ block (semicolons separate the blocks, in the order of the list above).
 \begin{center}\footnotesize\ttfamily
 [1, 0.25, 0.6; 0.12, 0.38, 0.62, 1; 0; 0,0,0; 0,0,0; 0,0,0,0; 0.23,0.57,0.66; 0,0.22,0.05,0.99]
 \end{center}
-Only two numbers moved from the opening screen: the step is now $0.25$ (the first masterpiece, no longer
-the lead) and the lead-so-far has dropped to $0.6$ ($=21/35$). Nothing is booked yet, so every other
-block is unchanged.
+Only two numbers moved from the opening screen: the decision counter has advanced to the first
+masterpiece (step $0.25$, no longer the lead) and the lead is now set to $21$ days ($21/35=0.6$).
+Nothing is booked yet, so every other block is unchanged.
 
 \emph{(2) Inside Botticelli} (room \texttt{A11}), early in the visit and inside the reserved window:
 \begin{center}\footnotesize\ttfamily
 [0, 1, 0.6; 0.12, 0.38, 0.62, 1; 0.19; 0.22, 0.61, 0.65; 1,0,0; 1,0,1,-0.18; 0.23,0.57,0.66; 0.02, 1, 1, 0.80]
 \end{center}
-The phase flag is now $0$ (walking) and the booking step is full ($1$). The three windows now show their
-start times ($0.22$, $0.61$, $0.65$ of the day) and the Botticelli check-in flag has flipped to $1$. The
-access read lights up: this is a gated masterpiece ($1$), it is not unbooked ($0$), you may appreciate
-it now ($1$) and the time-to-open is slightly negative ($-0.18$, the window has just opened). The room
-tail is the punchline: value $1.0$ (Botticelli is importance $10$, the maximum) and crowd $1.0$ (packed
-to capacity), but because you are inside your reserved window you collect the reward regardless of the
-crush.
+The phase flag is now $0$ (walking) and the booking is done (step $1$). It is minute $139$ of the
+$720$-minute day (time $0.19$). The three booked windows now show their clock times, minutes $160$,
+$440$, $470$ ($0.22$, $0.61$, $0.65$ of the day) and the Botticelli check-in flag has flipped to $1$.
+The access read lights up: this is a gated masterpiece ($1$), it is not unbooked ($0$), you may
+appreciate it now ($1$) and your window opened a little earlier (a slightly negative time-to-open,
+$-0.18$). The room tail is the punchline: importance $10$, the maximum (seen as $1.0$) and a room packed
+to capacity ($1.0$), yet because you are inside your reserved window you collect the reward regardless of
+the crush.
 
 \emph{(3) Inside Caravaggio} (room \texttt{E4}), near closing:
 \begin{center}\footnotesize\ttfamily
 [0, 1, 0.6; 0.12, 0.38, 0.62, 1; 0.94; 0.22, 0.61, 0.65; 1,1,1; 0,0,0,0; 0.23,0.57,0.66; 0.04, 0.74, 0.13, 0.05]
 \end{center}
-The time of day is now $0.94$, almost closing; all three check-in flags read $1$: every masterpiece is
-done. The access read is back to all zeros, because Caravaggio is not a gated room, you walk straight
-in; its value is still high ($0.74$) while its crowd is light ($0.13$). The number that matters now is
-the egress slack, down to $0.05$: there is barely time to reach the exit, which is exactly why the agent
-is on the first floor on its way out.
+It is now minute $679$ of the $720$-minute day (time $0.94$), almost closing; all three check-in flags
+read $1$: every masterpiece is done. The access read is back to all zeros, because Caravaggio is not a
+gated room, you walk straight in; its importance is still high ($7.4$, seen as $0.74$) while it is only
+$13\%$ full ($0.13$). The egress slack has fallen to $0.05$ ($\approx37$ minutes of spare time): the day
+is nearly over, which is exactly why the agent is on the first floor heading out.
 
 \emph{What differs between the algorithms within the RAMA task} is only the machinery: DQN
 outputs a value $Q(s,a)$ and acts greedily; PPO outputs action probabilities and samples;
