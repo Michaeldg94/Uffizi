@@ -60,8 +60,9 @@ DPI = 300
 OUT = Path("outputs")          # JSON / npy artifacts live here
 plt.rcParams.update({
     "figure.dpi": 120, "savefig.dpi": DPI, "savefig.bbox": "tight",
-    "font.size": 11, "axes.titlesize": 12, "axes.titleweight": "bold",
-    "axes.labelsize": 11, "figure.titlesize": 14,
+    "font.size": 13, "axes.titlesize": 15, "axes.titleweight": "bold",
+    "axes.labelsize": 13, "figure.titlesize": 15,
+    "xtick.labelsize": 12, "ytick.labelsize": 12, "legend.fontsize": 12,
     "axes.spines.top": False, "axes.spines.right": False,
 })
 INK = "#1F3A5F"; ACCENT = "#C0552B"; MUTED = "#6B7280"
@@ -251,7 +252,7 @@ def g_learning():
         axb.bar(xb, means, 0.66, yerr=errs, color=cols, edgecolor="white", capsize=3,
                 error_kw={"elinewidth": 0.9, "ecolor": "#444"})
         axb.axhline(0, color="#888", lw=0.8)
-        axb.set_xticks(xb); axb.set_xticklabels(names, rotation=28, ha="right", fontsize=8.5)
+        axb.set_xticks(xb); axb.set_xticklabels(names, rotation=28, ha="right", fontsize=11)
         axb.set_ylabel("mean episode return"); axb.grid(axis="y", alpha=0.25)
         axb.set_title("Toy: tabular Q-learning vs handcrafted baselines (5 seeds, mean $\\pm$ std)")
         figb.tight_layout()
@@ -282,7 +283,7 @@ def g_algo():
         ax.set_title(PROFILE_LABEL[p]); ax.set_ylabel("points (deterministic eval)")
         ax.grid(axis="y", alpha=0.25)
         if j == 1:
-            ax.legend(fontsize=8, ncol=1, loc="upper right", framealpha=0.9)
+            ax.legend(fontsize=11, ncol=1, loc="upper right", framealpha=0.9)
     fig.suptitle("Algorithm comparison: value-based (DQN) vs policy-gradient (PPO / MaskablePPO), "
                  "baseline vs intervened (5 seeds, mean $\\pm$ std)", y=1.02)
     fig.tight_layout()
@@ -337,13 +338,13 @@ def g_booking():
         for i, c in enumerate(CROWDS):
             pct = 100 * (intv[i] - base[i]) / base[i]
             ax.text(x[i] + w / 2, intv[i] + intv_e[i], f"+{pct:.0f}%", ha="center", va="bottom",
-                    fontsize=9, color=ACCENT)
+                    fontsize=12, color=ACCENT)
         ax.set_xticks(x); ax.set_xticklabels([CROWD_LABEL[c] for c in CROWDS])
         ax.set_title(PROFILE_LABEL[p]); ax.set_ylabel("points"); ax.grid(axis="y", alpha=0.25)
         panel_max = max(max(intv[i] + intv_e[i], base[i] + base_e[i]) for i in range(len(CROWDS)))
         ax.set_ylim(0, panel_max * 1.30)
         if j == 0:
-            ax.legend(fontsize=9, loc="upper right")
+            ax.legend(fontsize=11, loc="upper right")
     fig.suptitle("RAMA booking: intervened vs matched baseline (5 seeds, mean $\\pm$ std; "
                  "3/3 masterpieces secured)", y=1.02)
     fig.tight_layout()

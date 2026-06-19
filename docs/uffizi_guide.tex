@@ -1,7 +1,7 @@
 % =============================================================================
 % THE UFFIZI GUIDE
 % A plain-language tour of every algorithm in the project: how each one works,
-% how they differ, and why they produce the numbers we actually observe.
+% how they differ and why they produce the numbers we actually observe.
 % Build: pdflatex uffizi_guide.tex  (twice, for the table of contents)
 % =============================================================================
 \documentclass[11pt]{article}
@@ -26,7 +26,7 @@
 
 \title{\textbf{The Uffizi Guide}\\[0.3em]
 \large A plain-language tour of the algorithms:\\
-how they work, how they differ, and why they produce the numbers they do}
+how they work, how they differ and why they produce the numbers they do}
 \author{Uffizi RL project}
 \date{}
 
@@ -37,10 +37,10 @@ how they work, how they differ, and why they produce the numbers they do}
 \begin{abstract}
 \noindent This guide assumes you know nothing about reinforcement learning. It starts
 from the everyday idea of learning by trial and error, builds up the vocabulary one
-piece at a time, and only then writes down an equation, explaining what every symbol is
+piece at a time and only then writes down an equation, explaining what every symbol is
 doing. It covers all the methods the project uses: tabular Q-learning and Double
 Q-learning on the toy museum; the handcrafted rules we compare against; MaskablePPO,
-plain PPO, and DQN on the full museum; and the training and evaluation scaffolding
+plain PPO and DQN on the full museum; and the training and evaluation scaffolding
 (action masking, the curriculum, common random numbers, multiple seeds). The last third
 of the guide does something most write-ups skip: it explains, method by method, \key{why}
 the numbers came out the way they did, so that you can look at our tables and figures and
@@ -56,7 +56,7 @@ say not just \emph{what} happened but \emph{why} it had to happen.
 
 The Uffizi Gallery in Florence takes roughly five thousand visitors a day through about
 a hundred rooms. Almost all of them want the same four things: the two Botticelli
-paintings, the Leonardo, and the Raphael. So those four rooms are jammed shoulder to
+paintings, the Leonardo and the Raphael. So those four rooms are jammed shoulder to
 shoulder while the rest of the museum sits nearly empty. That is the whole problem in a
 sentence: not too many people for the building, but too many people for four rooms at
 the same moments.
@@ -65,32 +65,32 @@ The project attacks this on two fronts that, for most of the document, you shoul
 firmly apart.
 
 The first front is the \key{museum-wide simulation}. We build an artificial crowd of
-five thousand people, send them through the museum minute by minute, and ask what
+five thousand people, send them through the museum minute by minute and ask what
 happens to congestion and to visitor satisfaction if the management changes the rules
-(timed entry, booked slots for the masterpieces, longer hours, and so on). That front
+(timed entry, booked slots for the masterpieces, longer hours and so on). That front
 does not use any of the learning algorithms in this guide; it is a simulation of many
 simple people, not one clever one.
 
-The second front, and the one this guide is about, is the \key{single optimal visitor}.
-Take the redesigned museum as fixed, and ask: what should one smart visitor actually
+The second front and the one this guide is about, is the \key{single optimal visitor}.
+Take the redesigned museum as fixed and ask: what should one smart visitor actually
 \emph{do}? When should they book? Which masterpieces? How should they pace the day so
 they arrive at each painting at the right time and still get out before closing? That is
 a sequence of decisions made under uncertainty, with consequences that only show up
-later. That kind of problem is exactly what reinforcement learning is for, and it is why
+later. That kind of problem is exactly what reinforcement learning is for and it is why
 the algorithms below exist in the project at all.
 
-\paragraph{How the two fronts meet, and why we keep them apart.} The two fronts connect at a
+\paragraph{How the two fronts meet and why we keep them apart.} The two fronts connect at a
 single gate. The simulation decides whether a set of management changes is even acceptable: a
 director will adopt a redesign only if it raises visitor welfare \emph{without} collapsing
 ticket revenue, so the simulation's job is to find a bundle of changes (booked masterpiece
-slots, longer hours, gentle pricing, and so on) that passes that test. Only once a redesign
-passes does the second front open: take that redesigned museum as fixed, and ask what a
+slots, longer hours, gentle pricing and so on) that passes that test. Only once a redesign
+passes does the second front open: take that redesigned museum as fixed and ask what a
 single optimal visitor does inside it. So the learning algorithms in this guide never touch
 the question ``is the redesign worth doing?''; they answer the sharper question ``given that
 we did it, how should a smart visitor use it?'' Keeping the two apart is what stops us from
 confusing an \emph{average} over a whole messy population (what the simulation reports) with
 the \emph{best} behaviour of one ideal visitor (what the agent learns). Those are different
-questions with different answers, and much of the confusion in this kind of project comes
+questions with different answers and much of the confusion in this kind of project comes
 from running them together.
 
 % =============================================================================
@@ -102,7 +102,7 @@ as the running example, because every one of these words has a concrete meaning 
 
 \paragraph{State.} The \key{state} is everything the decision-maker knows at the moment
 it has to act. For our visitor, a state might be: ``I am in room A11, it is 11:40, this
-room is crowded, and I have already seen Botticelli and Leonardo.'' The state is a
+room is crowded and I have already seen Botticelli and Leonardo.'' The state is a
 snapshot. Crucially, a good state contains \emph{everything that matters for the next
 decision} and nothing the decision cannot depend on. We will see later that getting the
 state wrong, leaving out something the right action secretly depends on, quietly breaks
@@ -111,14 +111,14 @@ the learning.
 \paragraph{Action.} The \key{action} is the choice available in a state: ``move to the
 next room,'' ``stay another minute,'' or in the booking problem, ``reserve the Leonardo
 slot for 35 days from now.'' The set of legal actions can depend on the state (you can
-only walk to a room that is physically next door), and that simple fact will turn out to
+only walk to a room that is physically next door) and that simple fact will turn out to
 matter enormously.
 
 \paragraph{Reward.} The \key{reward} is a single number the world hands back after each
 action, measuring how good that step was right now. In the museum it is built from the
 art you appreciated this minute, discounted if the room was crowded, minus a small cost
 for time spent. Reward is local and immediate. It is \emph{not} the same as success;
-success is about the whole visit, and the reward only scores one step.
+success is about the whole visit and the reward only scores one step.
 
 \paragraph{Return.} The \key{return} is the total reward summed over the entire visit,
 from now until you walk out the door. This is what we actually care about. The whole
@@ -135,7 +135,7 @@ G_t \;=\; r_t \;+\; \gamma\, r_{t+1} \;+\; \gamma^2 r_{t+2} \;+\;\cdots\;=\; \su
 \end{equation}
 Read equation~\eqref{eq:return} slowly. $G_t$ is the return starting now. $r_t$ is the
 reward we get this step, counted in full. The next reward $r_{t+1}$ is multiplied by
-$\gamma$, the one after by $\gamma^2$, and so on, so rewards far in the future are shrunk
+$\gamma$, the one after by $\gamma^2$ and so on, so rewards far in the future are shrunk
 toward zero. If $\gamma$ is close to $1$ (we use $0.99$ and higher), the agent is
 \key{far-sighted}: a reward forty steps away still counts for a lot, which is essential
 here because the payoff for a good booking can land hundreds of minutes later. If
@@ -150,7 +150,7 @@ a short-sighted $\gamma = 0.5$: $10 + 0 + 0.25\cdot 6 + 0.125\cdot 4 = 12.0$. Th
 visit is ``worth'' $19.76$ to a patient agent and only $12.0$ to an impatient one,
 because the impatient one almost throws away the later $6$ and $4$. This is the entire
 reason we set $\gamma$ as high as $0.999$ for the booking agent: the reward for booking
-well does not arrive until check-in, possibly four hundred minutes later, and at
+well does not arrive until check-in, possibly four hundred minutes later and at
 $\gamma = 0.999$ a reward four hundred steps out is still worth $0.999^{400}\approx 0.67$
 of its face value, whereas at $\gamma = 0.99$ it would be worth $0.99^{400}\approx 0.018$,
 effectively invisible. The discount is not a technicality; it decides whether the agent
@@ -159,7 +159,7 @@ can even feel the consequence of its most important choice.
 \paragraph{Policy and value.} A \key{policy}, written $\pi$, is the agent's strategy: a
 rule that, given a state, says which action to take (or gives a probability to each
 action). Learning is nothing more than improving the policy. To improve it we need a way
-to score situations, and that is the \key{value}. The \key{action-value} $Q(s,a)$ is the
+to score situations and that is the \key{value}. The \key{action-value} $Q(s,a)$ is the
 return we expect if we take action $a$ in state $s$ and then act well forever after:
 \begin{equation}
 Q^{\pi}(s,a) \;=\; \mathbb{E}\!\left[\,G_t \;\middle|\; s_t = s,\; a_t = a,\; \text{then follow } \pi \right].
@@ -174,7 +174,7 @@ directly.
 
 \paragraph{The Markov decision process.} Put these together and you have a \key{Markov
 decision process} (MDP): states, actions, a reward for each step, a rule for how the
-state changes, and a discount. ``Markov'' just means the state is a complete enough
+state changes and a discount. ``Markov'' just means the state is a complete enough
 summary that the future depends only on the present state and action, not on the whole
 history of how you got there. When we later say a model ``broke because the task was not
 Markov in the state it could see,'' we mean exactly this property was violated: the right
@@ -187,7 +187,7 @@ Botticelli already seen). The policy looks at $s$ and chooses an action $a$ (say
 to the corridor). The world responds: it hands back a reward $r$ for that step (a little
 appreciation banked, discounted because the room was crowded, minus the time cost) and
 moves the visitor to a new state $s'$ (in the corridor, 11:41). Now the loop repeats from
-$s'$. The visit is a long chain of these $(s, a, r, s')$ transitions, and the agent's only
+$s'$. The visit is a long chain of these $(s, a, r, s')$ transitions and the agent's only
 job is to make choices so that the \emph{sum} of all those little rewards, the return, is
 as large as possible. Value-based methods (Q-learning, DQN) attack this by learning the
 number $Q(s,a)$ for each move and then always picking the largest; policy-gradient methods
@@ -200,14 +200,20 @@ one-step picture in your head; everything below is a variation on it.
 
 A natural question, having met the six words, is: ``so which exactly is the state in
 Q-learning? And in PPO?'' The clean answer carries an important idea:
-\emph{state, action, reward, return, and discount belong to the problem, the MDP, not to the
+\emph{state, action, reward, return and discount belong to the problem, the MDP, not to the
 algorithm.} An algorithm is a recipe for learning a good policy \emph{within} a given MDP; it
 does not change what the state or the reward is. So the right way to read the question is by
-problem, and the project has exactly two. The first is the \key{toy museum}, solved by both
-tabular Q-learning and Double Q-learning. The second is the \key{booking task} on the full
-museum, solved by DQN, PPO, and MaskablePPO. Within each problem the five elements are
-identical across the algorithms that share it; what changes is only how the state is
-\emph{represented} and how the action is \emph{chosen}.
+\emph{setting} and there are three. The first is the \key{toy museum} (tabular Q-learning and
+Double Q-learning). The other two both live on the \emph{full} museum and are easy to confuse,
+so we keep them apart. The \key{as-is museum} (no interventions) is the museum as it runs
+today: the visitor simply \emph{walks} a planned route through the crowds and \emph{books
+nothing}. The \key{RAMA museum} (the intervention) gates the masterpieces behind booked
+time-slots, so there \emph{the decision is the booking}. The deep methods are compared across
+both: \emph{PPO and DQN appear twice}, once as a no-booking walk on the as-is museum (the
+baselines) and once as a booking agent on the RAMA museum, while \emph{MaskablePPO appears
+only on the RAMA museum}. Within each setting the five elements are identical across the
+algorithms that share it; what changes is only how the state is \emph{represented} and how the
+action is \emph{chosen}.
 
 \subsection{The toy MDP (Q-learning and Double Q-learning)}
 
@@ -232,39 +238,80 @@ choosing the action with the largest entry in the row. Double-Q stores \emph{two
 updates them with the decorrelated rule (equation~\eqref{eq:doubleq}), choosing by the average
 of the two. Same state, same actions, same reward, same return, same discount.
 
-\subsection{The booking MDP (DQN, PPO, and MaskablePPO)}
+\paragraph{Where do the toy reward numbers come from?} They are hand-tuned \emph{shaping}
+constants, not derived quantities and what matters is their \emph{relative} size rather than
+the absolute values (multiplying every reward by the same factor leaves the optimal policy
+unchanged). Each one buys a specific behaviour:
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item $\alpha_A = 6$ sets how sharply a crowd discounts a painting: in a full room
+($\text{density}=1$) the value falls to $1/(1+6)\approx 14\%$ of its empty-room value. We made
+it \emph{large} on purpose, so that visiting off-peak clearly beats visiting at the peak; the
+whole point of the toy is to make temporal arbitrage worth learning. The full museum
+deliberately uses a much \emph{gentler} discount, $\alpha=0.5$; a harsh one there produced the
+``fake art lover'' that skipped crowded masterpieces, one of our documented failures.
+\item the step cost $0.5$ is a small per-minute charge so dithering is never free: small enough
+that a good room is still worth entering, large enough that loitering in a low-value room is
+net-negative. It is what makes the agent move on.
+\item the exit bonus $+15$ makes leaving worth real reward (about two masterpiece visits), so
+the agent does not squat, while staying small enough that it does not abandon the art to bolt
+for the door.
+\item the no-exit penalty $-50$ is the closing-time guillotine: large enough to dominate a
+whole episode's positive return ($\sim$80--100), so being locked in roughly wipes out the day,
+but deliberately \emph{finite}. An infinite penalty (or zeroing all reward) would be flat
+across policies and give no gradient, which is precisely the unlearnable-reward failure we
+describe later.
+\end{itemize}
+So these were set by trial and error to produce sensible behaviour; several of them exist
+\emph{because} an earlier value failed and the booking reward's weights were shaped the same
+way. They are an honest, hand-tuned part of the model, not first-principles constants; the
+\emph{rankings} they produce (off-peak beats peak, leaving beats squatting) are robust to the
+exact numbers, which is what we rely on.
 
-These three (the intervened arms of the algorithm comparison) also face the \emph{same} MDP.
+\subsection{The full museum: as-is (no booking) versus RAMA (booking)}
+
+On the full museum there are \emph{two} MDPs, not one and confusing them is the easiest
+mistake to make. The first is what the deep \emph{baselines} (\texttt{PPO-base},
+\texttt{DQN-base}) solve and it involves \emph{no booking at all}:
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=2pt]
+\item[State] An eight-number summary of a visitor walking a fixed planned route (room-value
+drain, importance, density, on-target flag, fraction of the plan done, time, egress slack,
+distance to the next room).
+\item[Action] Just two (\texttt{Discrete(2)}): \emph{stay} or \emph{move on}. Nothing is booked.
+\item[Reward] The per-minute museum reward (appreciation under the crowd discount, closing
+pressure, completion, step cost); no booking terms.
+\item[Return / Discount] The discounted sum, with $\gamma = 0.995$ (art lover) or $0.997$ (tourist).
+\end{description}
+This is the museum \emph{as it runs today}: you walk in and take the masterpieces as you find
+them, crowds and all. It is the fair opponent for the intervention.
+
+The second MDP is the \key{RAMA} task, what \texttt{MaskablePPO} solves (with unmasked PPO and
+DQN as controls) and here \emph{the booking is the whole decision}:
 \begin{description}[leftmargin=0pt,style=nextline,itemsep=2pt]
 \item[State] A vector of about $25$ numbers: a booking-phase flag and step; the lead time
-chosen so far; how many slots are still open at each of the four lead options; the time of
-day; the three booked windows currently held; the three check-ins already made; a small
-``access read'' of the current room (is it a masterpiece, is it unbooked, is it open now, how
-long until it opens); the three frozen arrival-time estimates; and the current room's
-remaining value, importance, crowd density, and egress slack.
-\item[Action] One of four (\texttt{Discrete(4)}). In the booking phase it sets the lead time,
-one of $\{1, 7, 21, 35\}$ days, and then, per masterpiece, whether to take the offered slot;
-in the visit phase it is \emph{stay} or \emph{move on}.
-\item[Reward] The per-minute museum reward (appreciation under the crowd discount, closing
-pressure, a completion bonus, the check-in bonus and waiting penalty, a small step cost), plus
-the booking-phase terms (the immediate off-pace penalty and the no-show penalty).
-\item[Return] The discounted sum of those rewards over the two-phase episode.
-\item[Discount] $\gamma = 0.999$ (the booking payoff lands at check-in, hundreds of minutes later).
+chosen so far; how many slots remain open at each of the four lead options; the time of day;
+the three booked windows held; the three check-ins done; an ``access read'' of the current
+room; the three frozen arrival estimates; and the current room's value, importance, density
+and egress slack.
+\item[Action] One of four (\texttt{Discrete(4)}): in the booking phase, the lead time
+$\in\{1,7,21,35\}$ days and whether to take each masterpiece slot; in the visit phase,
+\emph{stay} or \emph{move on}.
+\item[Reward] The same per-minute museum reward plus the booking terms (the immediate off-pace
+penalty and the no-show penalty).
+\item[Return / Discount] The discounted sum over the two-phase episode, with $\gamma = 0.999$
+(the booking payoff lands at check-in, hundreds of minutes later).
 \end{description}
-\emph{What differs between the three is how they represent the state and pick the action.}
-DQN feeds the state vector to a network that outputs a value $Q(s,a)$ for each of the four
-actions and takes the largest. PPO feeds the same vector to a network that outputs a
-\emph{probability} for each action and samples one. MaskablePPO is PPO with a single change:
-before sampling, any action illegal in the current state has its probability forced to zero
-(equation~\eqref{eq:mask}). Same state, same actions, same reward, same return, same discount;
-only the learner and the legality handling change.
+\emph{What differs between the algorithms within the RAMA task} is only the machinery: DQN
+outputs a value $Q(s,a)$ and acts greedily; PPO outputs action probabilities and samples;
+MaskablePPO is PPO with illegal actions forced to zero before sampling
+(equation~\eqref{eq:mask}).
 
-\paragraph{A note on the baseline arms.} The no-intervention baselines (the
-\texttt{PPO-base} and \texttt{DQN-base} bars) are a simpler MDP again: the state is an
-eight-number summary of a fixed planned walk, the action is just \emph{stay} or \emph{move on}
-(\texttt{Discrete(2)}), there is no booking, and the discount is $0.995$ for the art lover and
-$0.997$ for the tourist. They exist only to give the intervened agent a fair opponent: the
-same visitor, the same museum, with the masterpiece booking system switched off.
+\paragraph{A note on the real Uffizi.} Our ``booking'' is the \key{RAMA} intervention we
+\emph{propose}: timed slots for the masterpiece rooms, which do not exist today. It should not
+be confused with the entry-ticket booking that already exists, where a visitor either pre-books
+admission (around 29 euros and skips the entrance queue) or buys at the door (around 25 euros
+and queues). Our as-is baseline abstracts that entrance choice away and models only the
+in-museum congestion; modelling the entry book-or-queue decision and its price gap would be a
+natural extension.
 
 \subsection{The whole thing, one line each}
 
@@ -275,19 +322,18 @@ same visitor, the same museum, with the masterpiece booking system switched off.
 \toprule
 \textbf{Algorithm} & \textbf{State} & \textbf{Action} & \textbf{Reward} & \textbf{$\gamma$} \\
 \midrule
-Q-learning & toy 5-tuple, one table & stay / move (legal) & toy per-step & 0.99 \\
-Double-Q & toy 5-tuple, two tables & stay / move (legal) & toy per-step & 0.99 \\
-DQN & 25-dim booking vector & lead / book / pace, greedy & booking per-step & 0.999 \\
-PPO & 25-dim booking vector & lead / book / pace, sampled & booking per-step & 0.999 \\
-MaskablePPO & 25-dim booking vector & as PPO, illegal masked out & booking per-step & 0.999 \\
+Q-learning & toy 5-tuple, one table & stay / move & toy per-step & 0.99 \\
+Double-Q & toy 5-tuple, two tables & stay / move & toy per-step & 0.99 \\
+PPO / DQN, as-is & 8-number walk & stay / move on & walk (no booking) & 0.995/0.997 \\
+MaskablePPO, RAMA & 25-number booking & lead / book / pace, masked & booking per-step & 0.999 \\
+PPO / DQN, RAMA & 25-number booking & lead / book / pace & booking per-step & 0.999 \\
 \bottomrule
 \end{tabular}
 \end{center}
 
 Reading across: the only things that ever change are which \emph{problem} the algorithm is
-attached to (toy versus booking) and, within a problem, how it stores the state and screens
-the actions. That is the precise sense in which the five elements are properties of the
-problem, and the algorithm is the method you bring to it.
+attached to (toy, the as-is walk, or RAMA booking) and, within a setting, how it stores the state and screens
+the actions. That is the precise sense in which the five elements are properties of the setting; the algorithm is the method you bring to it.
 
 % =============================================================================
 \section{Learning from scratch: tabular Q-learning}
@@ -296,12 +342,12 @@ problem, and the algorithm is the method you bring to it.
 Start with the smallest version of the museum: a toy map of twelve rooms (entrance, two
 corridors, the masterpieces, a couple of minor rooms, the exit). It is small enough that
 we can keep a giant lookup table with one entry for every (state, action) pair and simply
-fill in the numbers. This is \key{tabular} Q-learning, and it is the cleanest way to see
+fill in the numbers. This is \key{tabular} Q-learning and it is the cleanest way to see
 the core idea before neural networks complicate the picture.
 
 \paragraph{What the toy state actually is.} Concretely, the toy state is a five-part label:
 which room you are in, which of ten time-slices of the day it is, how crowded Botticelli is
-(quantised to four levels), how crowded Leonardo is (four levels), and a small bitmask of
+(quantised to four levels), how crowded Leonardo is (four levels) and a small bitmask of
 which masterpieces you have already seen. Multiply those possibilities together and you get
 on the order of a hundred and twenty thousand distinct states, each with a handful of moves.
 That is small enough to keep every cell in memory and to visit each one many times over a
@@ -311,9 +357,9 @@ fill in a table and converge, with no neural network in the way to muddy what is
 \subsection{The idea before the equation}
 
 Imagine a notebook with a row for every situation you could be in and a column for every
-move, and in each cell a running estimate of ``how good is this move, here, in the long
+move and in each cell a running estimate of ``how good is this move, here, in the long
 run?'' At the start the notebook is blank (all zeros), so the agent has no idea what is
-good. It wanders, mostly at random, and every time it takes a step it learns one tiny
+good. It wanders, mostly at random and every time it takes a step it learns one tiny
 lesson: ``the move I just made led to an immediate reward, plus a next situation that my
 notebook says is worth such-and-such; so my old guess for that cell was a bit too high or
 too low, let me nudge it.'' Repeat that nudge a few hundred thousand times and the
@@ -323,7 +369,7 @@ algorithm.
 \subsection{The equation, piece by piece}
 
 The one-step update, applied every time the agent is in state $s$, takes action $a$, gets
-reward $r$, and lands in the next state $s'$, is
+reward $r$ and lands in the next state $s'$, is
 \begin{equation}
 Q(s,a)\;\leftarrow\;Q(s,a)\;+\;\alpha\Big[\;\underbrace{r+\gamma\max_{a'}Q(s',a')}_{\text{the TD target: a better estimate}}\;-\;\underbrace{Q(s,a)}_{\text{old estimate}}\;\Big].
 \label{eq:qupdate}
@@ -335,34 +381,34 @@ computed, better estimate and the stale one we had. The better estimate, called 
 plus the discounted value of the best thing we could do from the next state $s'$. The
 term $\max_{a'} Q(s',a')$ is the agent saying ``from where I landed, I will assume I play
 optimally, so I take the largest value in that row.'' We subtract the old guess $Q(s,a)$
-to get the error, and $\alpha$ (the \key{learning rate}, we use $0.1$) controls how big a
+to get the error and $\alpha$ (the \key{learning rate}, we use $0.1$) controls how big a
 nudge we make: small enough to be stable, large enough to learn in reasonable time.
 This is called \key{bootstrapping}, because the estimate is updated toward a target that
 itself contains an estimate ($Q(s',\cdot)$). We pull ourselves up by our own bootstraps,
 and remarkably it converges.
 
 \paragraph{Watching one cell learn.} Suppose the cell $Q(s,a)$ currently holds $0$ (we
-know nothing yet), the agent takes $a$, receives reward $r = 5$, and lands in a state
+know nothing yet), the agent takes $a$, receives reward $r = 5$ and lands in a state
 $s'$ whose best known move is worth $\max_{a'}Q(s',a') = 20$. With $\gamma = 0.99$ and
 $\alpha = 0.1$, the TD target is $5 + 0.99\cdot 20 = 24.8$, the TD error is
-$24.8 - 0 = 24.8$, and the new value is $0 + 0.1\cdot 24.8 = 2.48$. We did not jump all the
+$24.8 - 0 = 24.8$ and the new value is $0 + 0.1\cdot 24.8 = 2.48$. We did not jump all the
 way to $24.8$; we moved a tenth of the way, because $\alpha$ keeps each lesson small so
 that one unlucky step cannot overwrite everything. The next time the agent visits the
-same cell it nudges again, and again, and the value creeps toward its true long-run worth.
+same cell it nudges again and again and the value creeps toward its true long-run worth.
 Notice what just happened conceptually: information about the good state $s'$ (worth $20$)
 flowed \emph{backward} into the value of the earlier move $a$. Do this for every cell,
-millions of times, and value seeps backward from the exit and the masterpieces all the way
+millions of times and value seeps backward from the exit and the masterpieces all the way
 to the entrance, until the table encodes a coherent long-run plan even though every single
 update only ever looked one step ahead.
 
-\paragraph{Off-policy, and why that word matters.} Q-learning is \key{off-policy}: the
+\paragraph{Off-policy and why that word matters.} Q-learning is \key{off-policy}: the
 $\max$ in the target assumes the agent will act \emph{optimally} from $s'$ onward, even
 though, while exploring, it might actually take a random move next. In other words it
 learns the value of the best policy while behaving according to a more adventurous one.
 This is what lets it explore freely (try bad moves to learn they are bad) without
 corrupting the thing it is learning. The contrast with PPO later, which is \key{on-policy}
 and learns only about the policy it is currently running, is one of the deepest
-distinctions in the field, and it is the reason DQN can recycle old experience from a
+distinctions in the field and it is the reason DQN can recycle old experience from a
 memory buffer while PPO cannot.
 
 \subsection{Two details that matter later}
@@ -372,7 +418,7 @@ lock onto the first decent path it found and never discover better ones. So it u
 \key{$\varepsilon$-greedy} action selection: with probability $\varepsilon$ it acts
 randomly (explore), otherwise it takes the best-known move (exploit). We start at
 $\varepsilon = 1.0$ (all exploration) and decay it multiplicatively toward $0.01$, so the
-agent is adventurous early and disciplined late. This randomness is seeded, and it is the
+agent is adventurous early and disciplined late. This randomness is seeded and it is the
 \emph{only} source of run-to-run difference on the deterministic toy, a fact we will need
 when we explain why two seeds give slightly different numbers.
 
@@ -381,10 +427,10 @@ equation~\eqref{eq:qupdate} the $\max_{a'}$ is taken only over \emph{legal} move
 $s'$, never over impossible ones. This is a small, free piece of correctness in the
 tabular world; it becomes a central design choice once we move to neural networks.
 
-\subsection{What it learns, and why}
+\subsection{What it learns and why}
 
 On the toy map, the crowds are \key{deterministic waves}: Botticelli peaks at a fixed time
-of day, Leonardo a bit later, and so on, the same every run. The agent is never told this
+of day, Leonardo a bit later and so on, the same every run. The agent is never told this
 schedule. Yet through equation~\eqref{eq:qupdate} it discovers \key{temporal arbitrage}:
 visit a masterpiece in the valley before or after its crowd peak, not at the peak when a
 naive plan would send you. \why{It learns this because the reward divides appreciation by
@@ -398,7 +444,7 @@ and error, beats any fixed plan.
 \section{The optimist's curse: Double Q-learning}\label{sec:doubleq}
 % =============================================================================
 
-Q-learning has a famous, subtle flaw, and the project includes a second algorithm built
+Q-learning has a famous, subtle flaw and the project includes a second algorithm built
 specifically to fix it. Understanding the flaw is worth a page because it also explains a
 result that surprises people: on our toy, the ``improved'' algorithm does \emph{not} win.
 
@@ -417,7 +463,7 @@ than the maximum of the true values. Formally this is \key{Jensen's inequality}:
 In words: the expected value of the maximum is at least the maximum of the expected
 values. The agent's TD target is therefore systematically too optimistic. This is
 \key{maximisation bias} or \key{overestimation}: the same noisy table is used both to
-\emph{choose} the best next action and to \emph{score} it, and that double duty inflates
+\emph{choose} the best next action and to \emph{score} it and that double duty inflates
 the estimate.
 
 \paragraph{A coin-flip example you can feel.} Imagine three moves whose true long-run
@@ -427,7 +473,7 @@ so your target says ``the best is worth $+3$.'' Another step the noise reads $-1
 and the max is $+4$. Average the maxima over many steps and you get a number comfortably
 above $0$, even though no move is actually worth more than $0$. You have convinced yourself
 the future is rosier than it is, purely because you always quote the luckiest of several
-noisy numbers. That is overestimation in one sentence, and it compounds: an inflated value
+noisy numbers. That is overestimation in one sentence and it compounds: an inflated value
 for $s'$ flows backward through bootstrapping and inflates earlier cells too. Double-Q
 breaks it because the table that \emph{spotted} the lucky $+4$ is not the table asked
 \emph{how much it is really worth}; the second, independently noisy table will, on average,
@@ -436,7 +482,7 @@ quote something near the truth.
 \subsection{The fix: two tables and a coin}\label{sec:doubleq-fix}
 
 Double Q-learning (van Hasselt, 2010) breaks the self-flattery by keeping \emph{two}
-tables, $Q_A$ and $Q_B$, and on each step flipping a coin to decide which one to update.
+tables, $Q_A$ and $Q_B$ and on each step flipping a coin to decide which one to update.
 When updating $Q_A$, it uses $Q_A$ only to \emph{pick} the next action, but $Q_B$ to
 \emph{score} it:
 \begin{equation}
@@ -446,7 +492,7 @@ Q_A(s,a)\;\leftarrow\;Q_A(s,a)+\alpha\Big[\,r+\gamma\,Q_B\big(s',\,\textstyle\ar
 The key is the inner part: $\arg\max_{a'}Q_A(s',a')$ asks $Q_A$ ``which action looks
 best?'' and then $Q_B(s', \cdot)$ asks a \emph{different, independently noisy} table ``and
 what is that action actually worth?'' Because the table that chooses is not the table that
-scores, the lucky positive noise that fooled a single table no longer lines up, and the
+scores, the lucky positive noise that fooled a single table no longer lines up and the
 overestimation largely cancels. At decision time the agent acts on the average
 $\tfrac12(Q_A + Q_B)$. The symmetric update (swap $A$ and $B$) runs when the coin lands the
 other way.
@@ -456,17 +502,17 @@ other way.
 Here is the result that looks wrong at first: across five random seeds, vanilla Q-learning
 scores $83.3 \pm 3.8$ and Double-Q scores $83.1 \pm 3.7$. They are \key{statistically
 tied}; the variant neither helps nor hurts. \why{The reason is that overestimation feeds
-on noise, and the toy has almost none. The crowd waves are deterministic and the rewards
+on noise and the toy has almost none. The crowd waves are deterministic and the rewards
 are a fixed function of (state, action), so once the table converges there is no random
 noise in the targets for the $\max$ to inflate. With no bias to remove, Double-Q's
 machinery is solving a problem that is not there.} The small run-to-run wobble you see is
 not target noise; it is exploration noise, which way the $\varepsilon$-greedy coin sent
-the agent early in training, and that affects both algorithms equally.
+the agent early in training and that affects both algorithms equally.
 
 This is exactly why we report both. The honest lesson is not ``Double-Q is better'' but
 ``Double-Q earns its keep precisely when the environment is noisy.'' Hold that thought:
 when we get to DQN on the full, genuinely stochastic museum, the very same overestimation
-will return and will hurt, and the contrast will explain a real gap in the results.
+will return and will hurt and the contrast will explain a real gap in the results.
 
 % =============================================================================
 \section{The rules we compare against: the handcrafted baselines}
@@ -486,7 +532,7 @@ A learned policy that cannot beat ``follow the guidebook route'' has proven noth
 
 These are not learning algorithms; they are fixed strategies, so they need no training.
 They exist only as a yardstick. We will see in the results section that, strikingly, most
-of them score \emph{negative}, worse than the random policy, and the explanation of why a
+of them score \emph{negative}, worse than the random policy and the explanation of why a
 ``smart'' rule loses to coin-flipping is one of the more instructive parts of the story.
 
 % =============================================================================
@@ -496,9 +542,9 @@ of them score \emph{negative}, worse than the random policy, and the explanation
 The lookup table worked because the toy had only twelve rooms and a handful of state
 features, about a hundred thousand cells in total, small enough to visit each many times
 and fill in. The real museum destroys that. It has ninety-eight rooms, roughly a hundred
-possible moves at each step, a continuous crowd density in every room, and an observation
+possible moves at each step, a continuous crowd density in every room and an observation
 with several hundred numbers in it. A table over all of that would have more cells than we
-could ever visit, and almost every cell would stay blank forever. Worse, a table has no
+could ever visit and almost every cell would stay blank forever. Worse, a table has no
 notion that two similar situations should have similar values; it treats every cell as
 unrelated, so nothing learned in one state helps in a nearby one.
 
@@ -506,7 +552,7 @@ unrelated, so nothing learned in one state helps in a nearby one.
 several hundred numbers, assembled fresh each minute: a one-hot code for the current room
 (a $1$ in the slot for ``where I am,'' zeros elsewhere), the crowd density in every room and
 whether that density is rising or falling, the time of day, an \key{egress slack} (how much
-time is left minus how many hops to the nearest exit), a visited-flag for every room, and,
+time is left minus how many hops to the nearest exit), a visited-flag for every room and,
 importantly, a per-room \key{appreciation-progress} value recording how much of each room's
 worth has already been banked. Several of these features earn their place only because
 earlier versions of the agent broke without them, the egress slack and the
@@ -517,7 +563,7 @@ treat two similar vectors similarly, the generalisation a table can never manage
 The fix is \key{function approximation}. Instead of storing a separate number for every
 situation, we train a \key{neural network} to compute values or action-probabilities from
 the state. A network is just a flexible function with adjustable knobs (its weights): you
-feed in the state numbers, it multiplies and adds and bends them through a few layers, and
+feed in the state numbers, it multiplies and adds and bends them through a few layers and
 out comes either a value or a probability for each action. Because it is a smooth function,
 it \key{generalises}: nudging the weights to be right about one crowded masterpiece room
 automatically makes it more right about other crowded rooms. We use small networks, two
@@ -525,14 +571,14 @@ hidden layers of 128 or 256 units, which is plenty for this problem.
 
 \paragraph{How a network learns, in plain terms.} A neural network is a stack of
 \key{layers}. Each layer takes the numbers from the previous layer, multiplies them by its
-weights, adds them up, and passes the result through a simple bend (a nonlinearity) so the
+weights, adds them up and passes the result through a simple bend (a nonlinearity) so the
 whole thing can represent curves and not just straight lines. The first layer reads the
 state; the last layer outputs what we want (a value, or a probability per action). Training
 means adjusting the weights so the outputs are good. We measure ``how wrong'' the network
 is with a \key{loss}, a single number that is large when the output is far from what it
 should be (for DQN the loss is the squared TD error; for PPO it is the clipped objective,
 flipped to a loss). Then we use \key{gradient descent}: compute, for every weight, the
-direction that would most reduce the loss (the \key{gradient}), and take a small step that
+direction that would most reduce the loss (the \key{gradient}) and take a small step that
 way. Repeat on batch after batch of experience and the network slowly slides into weights
 that produce good outputs. So ``the agent learns'' really means ``a loss is repeatedly
 nudged downhill by tiny weight adjustments.'' Nothing more mystical than that is happening,
@@ -546,21 +592,21 @@ return, temporal-difference error, are exactly the ones you already have.
 % =============================================================================
 
 There are two broad ways to use a network. One is to keep estimating $Q$ and act greedily,
-the neural descendant of Q-learning; that is DQN, and we cover it shortly. The other is to
+the neural descendant of Q-learning; that is DQN and we cover it shortly. The other is to
 skip values as the main object and adjust the \emph{policy} itself, the probabilities of
 each action, so that good actions become more likely. That second family is
-\key{policy-gradient}, and our workhorse, \key{PPO} (Proximal Policy Optimisation), lives
+\key{policy-gradient} and our workhorse, \key{PPO} (Proximal Policy Optimisation), lives
 there. PPO is the method behind the project's headline results, so it is worth
 understanding properly.
 
 \subsection{Policy gradient, the core idea}
 
 Forget values for a moment. Suppose the policy is a dial-box of probabilities: in each
-state it assigns some chance to each action, and we can turn the dials. The most direct
-imaginable learning rule is: run a whole visit, see how much total reward it earned, and
+state it assigns some chance to each action and we can turn the dials. The most direct
+imaginable learning rule is: run a whole visit, see how much total reward it earned and
 then turn the dials so that the actions taken on a \emph{good} visit become more likely and
 the actions taken on a \emph{bad} visit become less likely. That is literally the original
-policy-gradient method, called \key{REINFORCE}, and its update has the shape
+policy-gradient method, called \key{REINFORCE} and its update has the shape
 \begin{equation}
 \theta \;\leftarrow\; \theta \;+\; \eta \, G \, \nabla_\theta \log \pi_\theta(a\mid s),
 \label{eq:reinforce}
@@ -574,9 +620,9 @@ of what worked.''
 
 The trouble with the raw recipe is \key{variance}. Using the whole-episode return $G$ to
 judge \emph{every} action in that episode is terribly noisy: a single great booking can be
-buried inside an otherwise mediocre visit, and a clumsy move can ride the coat-tails of a
+buried inside an otherwise mediocre visit and a clumsy move can ride the coat-tails of a
 lucky day. The learning signal is honest on average but jumps around so much that training
-is painfully slow. Two ideas tame it, and together they turn REINFORCE into a method that
+is painfully slow. Two ideas tame it and together they turn REINFORCE into a method that
 actually works at scale. First, instead of judging an action by the whole return, judge it
 by how much better things went than \emph{expected}, which requires something that predicts
 the expectation. Second, take small, controlled steps so the noisy signal cannot blow the
@@ -590,13 +636,13 @@ PPO trains two networks that cooperate. The \key{actor} is the policy $\pi_\thet
 given a state, it outputs a probability for each action ($\theta$ denotes its weights). The
 \key{critic} is a value function $V_\phi(s)$: given a state, it estimates the return you
 expect from there. The actor proposes; the critic judges whether what happened was better
-or worse than expected, and that judgement is what tells the actor which way to adjust.
+or worse than expected and that judgement is what tells the actor which way to adjust.
 
 \subsection{The advantage: was that better than expected?}
 
 The signal the actor learns from is the \key{advantage}, how much better an action turned
 out than the critic's baseline expectation. If you were in a state the critic valued at
-$100$, took an action, and the outcome was worth $130$, the advantage is $+30$: do that
+$100$, took an action and the outcome was worth $130$, the advantage is $+30$: do that
 more. If it was worth $80$, the advantage is $-20$: do that less. Estimating the advantage
 well is its own small art; PPO uses \key{generalised advantage estimation} (GAE), which
 blends short- and long-horizon estimates:
@@ -615,12 +661,12 @@ one-step estimate (smoother, more biased). A high $\lambda$ here gives the actor
 low-bias sense of which booking decisions truly paid off many minutes later.
 
 \paragraph{The advantage, with numbers.} Suppose the critic valued the current state at
-$V(s_t) = 100$, the agent took an action, received $r_t = 5$, and the critic values the
+$V(s_t) = 100$, the agent took an action, received $r_t = 5$ and the critic values the
 state it landed in at $V(s_{t+1}) = 120$. The one-step surprise is
 $\delta_t = 5 + 0.999\cdot 120 - 100 = 24.88$: things went markedly better than the critic
 expected, so the advantage is strongly positive and PPO will make that action more likely.
 Had the next state been valued at only $80$, we would get
-$\delta_t = 5 + 0.999\cdot 80 - 100 = -15.08$, a negative advantage, and PPO would make the
+$\delta_t = 5 + 0.999\cdot 80 - 100 = -15.08$, a negative advantage and PPO would make the
 action \emph{less} likely. GAE then chains these one-step surprises over the rest of the
 episode (each discounted by $\gamma\lambda$), so an action is credited not only for the
 immediate surprise but for the run of good or bad surprises it set in motion. That is
@@ -628,7 +674,7 @@ exactly the right notion of credit for a booking whose benefit only unfolds acro
 visit: the booking action inherits the advantage of every well-timed check-in it later made
 possible.
 
-\subsection{The clipped objective, and why ``proximal''}
+\subsection{The clipped objective and why ``proximal''}
 
 Naively, you would push the policy hard toward every action with positive advantage. The
 danger is overshooting: one big greedy update can wreck a policy that took ages to shape,
@@ -643,18 +689,18 @@ L^{\text{CLIP}}(\theta)\;=\;\mathbb{E}_t\Big[\min\big(\rho_t\,\hat A_t,\;\operat
 Read it as a careful instruction. We want to increase probability for positive-advantage
 actions, that is the $\rho_t \hat A_t$ term. But $\operatorname{clip}(\rho_t, 1-\epsilon,
 1+\epsilon)$ refuses to let the ratio move outside $[1-\epsilon, 1+\epsilon]$ (with
-$\epsilon = 0.2$, outside $[0.8, 1.2]$), and the $\min$ takes the less optimistic of the
+$\epsilon = 0.2$, outside $[0.8, 1.2]$) and the $\min$ takes the less optimistic of the
 clipped and unclipped versions. The effect: once an action's probability has moved about
 twenty percent, the objective stops rewarding further movement on that batch, so no single
 update can lurch. ``Proximal'' means each new policy stays close to the last one. This
-self-imposed caution is the reason PPO is \key{stable}, and stability, as the results will
+self-imposed caution is the reason PPO is \key{stable} and stability, as the results will
 show, is most of why it wins.
 
 \paragraph{The clip, with numbers.} Say an action had a positive advantage $\hat A_t = 10$,
 and the update has already raised its probability so that $\rho_t = 1.5$ (it is now $1.5$
 times as likely as under the old policy). The unclipped term would reward us
 $1.5\cdot 10 = 15$ for pushing even harder. But the clip caps $\rho_t$ at $1.2$, giving
-$1.2\cdot 10 = 12$, and the $\min$ picks the smaller, $12$. Because the clipped value no
+$1.2\cdot 10 = 12$ and the $\min$ picks the smaller, $12$. Because the clipped value no
 longer grows as $\rho_t$ rises past $1.2$, the gradient there is zero: PPO simply stops
 paying us to inflate this action further on this batch. The action will keep rising, but
 only a little per batch, across many batches, never in one reckless leap. For a negative
@@ -677,8 +723,8 @@ bonus} (a small reward, weight $\approx 0.01$, for keeping the action probabilit
 out rather than collapsing to a single certain choice too early). Without it a policy can
 prematurely commit to a mediocre habit; with it, the agent keeps a little curiosity until
 the evidence is in. The far-sighted discount ($\gamma = 0.999$ for booking), the low-bias
-advantage ($\lambda = 0.98$), the clip ($\epsilon = 0.2$), and this entropy nudge are the
-handful of dials that define our PPO; none of them is exotic, and the defaults work because
+advantage ($\lambda = 0.98$), the clip ($\epsilon = 0.2$) and this entropy nudge are the
+handful of dials that define our PPO; none of them is exotic and the defaults work because
 masking has already made the problem clean.
 
 \subsection{How PPO differs from Q-learning}
@@ -708,7 +754,7 @@ infinity, so it receives exactly zero probability:
 \label{eq:mask}
 \end{equation}
 where $z_a$ is the network's score for action $a$, $\mathcal A(s)$ is the set of legal
-actions in state $s$, and $\mathbb{1}[\cdot]$ is $1$ for legal actions and $0$ otherwise.
+actions in state $s$ and $\mathbb{1}[\cdot]$ is $1$ for legal actions and $0$ otherwise.
 The denominator sums only over legal actions, so the probabilities of the legal moves
 renormalise to one and every illegal move is impossible by construction. \key{MaskablePPO}
 is just PPO with this mask applied identically during training and evaluation.
@@ -719,7 +765,7 @@ moves are even allowed?'') and lets every scrap of gradient go into the decision
 actually matters.
 
 \paragraph{Why the unmasked version is genuinely harder, not just messier.} Without
-masking, the network must \emph{learn} to avoid illegal moves from a penalty, and that has
+masking, the network must \emph{learn} to avoid illegal moves from a penalty and that has
 three costs that compound. It wastes capacity: probability mass and gradient go into
 suppressing the eighty-odd impossible actions instead of ranking the handful of real ones.
 It slows learning: early on, most sampled actions are illegal, so most steps teach the dull
@@ -729,7 +775,7 @@ with the static of accidental illegal moves and their penalties. Masking is, mat
 exactly equivalent to handing the agent a different, smaller, state-dependent action space,
 the legal one, so none of these costs is ever paid. That is why we describe it not as a
 tweak but as changing the problem the network has to solve. The results section quantifies
-exactly how much it buys, and, revealingly, \emph{where}: only where the underlying decision
+exactly how much it buys and, revealingly, \emph{where}: only where the underlying decision
 is hardest.
 
 % =============================================================================
@@ -749,23 +795,23 @@ past experience and replays random batches of it, so the network is not whiplash
 latest correlated steps. And a \key{target network} $Q_{\theta^-}$, a slowly updated copy
 of the weights, supplies the value of $s'$ in the target, so the thing we are chasing does
 not move every single step. We give DQN a buffer of a hundred thousand to two hundred
-thousand transitions, a slow target update, and a sensible exploration schedule.
+thousand transitions, a slow target update and a sensible exploration schedule.
 
 \paragraph{The deadly triad.} There is a well-known warning in reinforcement learning that
 three ingredients, when combined, make learning unstable: \key{bootstrapping} (updating an
 estimate toward a target that contains another estimate), \key{function approximation} (a
-neural network rather than an exact table), and \key{off-policy} learning (training on data
+neural network rather than an exact table) and \key{off-policy} learning (training on data
 from a different, older policy via the replay buffer). This trio is called the \key{deadly
-triad}, and DQN has all three at once. None of them is individually fatal, the tabular toy
+triad} and DQN has all three at once. None of them is individually fatal, the tabular toy
 had bootstrapping and off-policy learning and was fine, but together, on a hard noisy
 problem, they can let errors feed on themselves: a wrong value gets bootstrapped into
-neighbouring states, the network generalises the error to states it has not even seen, and
+neighbouring states, the network generalises the error to states it has not even seen and
 the stale buffer keeps reinforcing it. PPO sidesteps the triad entirely: it is on-policy and
 does not bootstrap a $\max$, which is a large part of why it is the calmer learner.
 
 \paragraph{The overestimation, returning.} Notice the $\max_{a'}$ sitting right there in
 equation~\eqref{eq:dqn}. This is the same maximisation that caused overestimation in
-section~\ref{sec:doubleq}, and plain DQN does \emph{not} use the double-table fix (its deep cousin
+section~\ref{sec:doubleq} and plain DQN does \emph{not} use the double-table fix (its deep cousin
 \key{Double-DQN} exists precisely to add one, by choosing the next action with the online
 network but scoring it with the target network, exactly the Double-Q trick of section~\ref{sec:doubleq-fix}).
 On a deterministic toy this did not matter, which is why Double-Q tied vanilla there. On the
@@ -773,7 +819,7 @@ full museum, where the crowd is genuinely stochastic and the value targets are t
 noisy, it matters a great deal. Our DQN is also unmasked and chases a moving target with a
 big function approximator. Keep all of this in mind: bootstrapped overestimation, the deadly
 triad, no masking. It is precisely the recipe for the crowd-fragile, high-variance behaviour
-we will see in the numbers, and it is the live, full-scale echo of the toy lesson that
+we will see in the numbers and it is the live, full-scale echo of the toy lesson that
 Double-Q only earns its keep under noise.
 
 % =============================================================================
@@ -785,7 +831,7 @@ move that looks best on current evidence (\key{exploit}), or try a move it is un
 find out whether it is secretly better (\key{explore})? Pure exploitation locks onto the
 first decent habit and never improves, because it never gathers evidence about the roads not
 taken. Pure exploration learns a lot but never cashes any of it in. Good learning explores
-heavily early, when it knows little, and shifts toward exploiting as the evidence piles up.
+heavily early, when it knows little and shifts toward exploiting as the evidence piles up.
 
 The tabular and value-based methods (Q-learning, DQN) manage this with
 \key{$\varepsilon$-greedy}: with probability $\varepsilon$ act at random, otherwise take the
@@ -797,10 +843,10 @@ near-certain choice. Entropy is just a measure of how undecided a distribution i
 the options are balanced, low when one dominates, so paying for entropy is literally paying
 the policy to stay a little open-minded until the evidence justifies committing.
 
-These are two costumes for one idea, and getting it wrong is behind real failures. The
+These are two costumes for one idea and getting it wrong is behind real failures. The
 do-nothing trap (the free decline) is exactly an exploration failure: the safe action paid off
 immediately, the agent stopped trying the booking alternative before it ever experienced the
-delayed reward, and so it never learned that booking was better. Whenever an agent ``gets
+delayed reward and so it never learned that booking was better. Whenever an agent ``gets
 stuck'' on a mediocre habit, exploration is the first thing to interrogate.
 
 % =============================================================================
@@ -835,10 +881,10 @@ clean column for MaskablePPO, stable updates and a free-of-charge legal action s
 wins. The results section is essentially this table, made quantitative.
 
 % =============================================================================
-\section{The scaffolding: curriculum, common random numbers, and seeds}
+\section{The scaffolding: curriculum, common random numbers and seeds}
 % =============================================================================
 
-Three pieces of machinery are not algorithms but make the comparisons trustworthy, and the
+Three pieces of machinery are not algorithms but make the comparisons trustworthy and the
 project's conclusions lean on them.
 
 \paragraph{Curriculum.} Training an agent directly against the full five-thousand-person
@@ -847,7 +893,7 @@ difficulty: a first stage at about a third of the peak crowd, then two-thirds, t
 full crowd, always over a complete museum day. Learning the easy version first and then
 transferring is faster and more reliable, the same reason you would not teach someone to
 drive in rush-hour traffic on day one. The deeper justification is about signal-to-noise. A
-beginner policy makes mostly poor choices, and in a packed museum those poor choices are
+beginner policy makes mostly poor choices and in a packed museum those poor choices are
 buried under heavy crowd randomness, so the learning signal is weak and the agent flails.
 In a light crowd the same poor choices produce clearer, less noisy consequences, so the
 basics (where the masterpieces are, how to pace, when to leave) lock in quickly; once they
@@ -869,7 +915,7 @@ crowd scenarios and compare them scenario by scenario: if A beats B on the very 
 the gap is about the policies, because the only thing that changed is the policy. It is the
 logic of a fair race, everyone runs the same track on the same day, so the finishing order
 means something. This is why our evaluation crowds (seeds $900000$ through $900005$) are
-frozen and identical for every model in the grid, and it is what lets us read a small gap
+frozen and identical for every model in the grid and it is what lets us read a small gap
 between two algorithms as real rather than noise.
 
 \paragraph{Multiple seeds.} A single training run is one sample of a random process (random
@@ -882,11 +928,11 @@ looks like a clean win on a single seed but is revealed, across five, to be a co
 between a large win and a collapse.
 
 \paragraph{How to read a training curve.} Several figures in the project plot a learning
-curve, and they all read the same way. The horizontal axis is training progress (episodes
+curve and they all read the same way. The horizontal axis is training progress (episodes
 for the toy, environment steps for the deep agents); the vertical axis is the return the
 policy achieves. A healthy curve starts low (the untrained agent is bad), climbs as the loss
-is nudged downhill batch after batch, and then \key{plateaus} once the policy stops
-improving, that flat top is \key{convergence}, and it is the part we care about, not the
+is nudged downhill batch after batch and then \key{plateaus} once the policy stops
+improving, that flat top is \key{convergence} and it is the part we care about, not the
 noisy beginning. The shaded band around the line is variability (a rolling confidence
 interval, or the spread across seeds): a narrow band means a reliable result, a wide one
 means a fragile one. Two warnings the curves teach. First, read the plateau, not the single
@@ -902,19 +948,19 @@ number evaluation above.
 % =============================================================================
 
 Early in the project the agent was asked to learn how to \emph{walk} the museum. That was
-a mistake we corrected, and the correction is itself a lesson worth stating: a real
+a mistake we corrected and the correction is itself a lesson worth stating: a real
 visitor has a map and is guided by staff, so optimising the walk is a shortest-path puzzle
 dressed up as learning, with a trivial, fully observed state. The genuinely uncertain,
-consequential decision is the \key{booking}, and reframing the task around it is what made
+consequential decision is the \key{booking} and reframing the task around it is what made
 the project's centerpiece. The walking then happens underneath as automatic pacing.
 
 \paragraph{Choosing the MDP is the modelling.} It is tempting to think the hard part of a
 reinforcement-learning project is the algorithm. It is not. The hard part is deciding
-\emph{what decision the agent is even making}, that is, choosing the state, the actions, and
-the reward. We spent months making a navigation agent work, and the brittle result kept
+\emph{what decision the agent is even making}, that is, choosing the state, the actions and
+the reward. We spent months making a navigation agent work and the brittle result kept
 whispering that something was wrong. The realisation was that we had chosen the wrong MDP:
 walking a known map with a guide is barely a decision at all, so no algorithm, however good,
-could make it interesting. Moving the action from ``which room next'' to ``when, and how far
+could make it interesting. Moving the action from ``which room next'' to ``when and how far
 ahead, to book'' turned a trivial shortest path into a genuine sequential decision under
 uncertainty with a delayed payoff, the kind of problem where learning earns its keep. The same equations and the same PPO then produced a result worth reporting,
 not because the algorithm got better but because the question did. If you take one
@@ -924,7 +970,7 @@ work: a beautiful optimiser pointed at the wrong decision optimises nothing.
 \subsection{A two-phase episode}
 
 Each episode now has two phases. In \key{Phase 1 (booking)}, before the visit, the agent
-chooses a \key{lead time}, how many days in advance to book, from $\{1, 7, 21, 35\}$, and
+chooses a \key{lead time}, how many days in advance to book, from $\{1, 7, 21, 35\}$ and
 then, for each of the three gated masterpieces, whether to take the offered slot. In
 \key{Phase 2 (the visit)}, it walks the museum and must \key{check in} at each painting
 inside the time window it booked. The discount is set high, $\gamma = 0.999$, because the
@@ -934,20 +980,20 @@ into the visit; a far-sighted agent is mandatory.
 \paragraph{One full episode, narrated.} Picture a packed day. In Phase 1 the agent, reading
 that the museum is full, chooses a lead time of $35$ days, because the fill curve tells it
 that anything shorter will not secure the popular slots. It accepts the offered windows for
-Botticelli, Leonardo, and Raphael, spread across the day. So far it has earned almost
+Botticelli, Leonardo and Raphael, spread across the day. So far it has earned almost
 nothing; the payoff is still hundreds of steps away. Phase 2 then begins at the entrance. The
 agent walks room by room (every move a legal neighbour), pacing itself so that it arrives at
 Botticelli inside its ten-minute window, where it finally banks the appreciation and a
 check-in bonus; it continues to Leonardo and Raphael in their windows, drops to the first
-floor for Caravaggio, and leaves before closing. Only now, at each check-in, does the large
-reward land, and the high discount carries that reward all the way back to justify the
+floor for Caravaggio and leaves before closing. Only now, at each check-in, does the large
+reward land and the high discount carries that reward all the way back to justify the
 lead-$35$ choice made before the visit even started. That backward flow of credit, from a
 check-in late in the afternoon to a booking made weeks in advance, \emph{is} the learning
-problem in miniature, and it is why the next subsection is about credit assignment.
+problem in miniature and it is why the next subsection is about credit assignment.
 
 \subsection{The reward, component by component}
 
-The per-minute reward is a sum of terms, and reading them is the fastest way to understand
+The per-minute reward is a sum of terms and reading them is the fastest way to understand
 what the agent is being asked to want:
 \begin{equation}
 r \;=\; \underbrace{r_{\text{art}}}_{\text{appreciation}} \;+\; \underbrace{r_{\text{closing}}}_{\text{get-out pressure}} \;+\; \underbrace{r_{\text{completion}}}_{\text{finished a must-see}} \;+\; \underbrace{r_{\text{checkin}} + r_{\text{wait}}}_{\text{booking discipline}} \;+\; \underbrace{r_{\text{time}}}_{\text{small step cost}} .
@@ -960,7 +1006,7 @@ r_{\text{art}} \;=\; \text{importance} \,\times\, \underbrace{\frac{1}{1+\alpha\
 \end{equation}
 which says a room pays its \key{importance}, scaled down when it is crowded (the crowd
 discount, with $\alpha$ small so a crowded masterpiece still beats skipping it, $\alpha=0.5$
-for the art lover, $1.0$ for the tourist), and scaled down the longer you have already
+for the art lover, $1.0$ for the tourist) and scaled down the longer you have already
 stood there (\key{novelty} decays, so value \key{satiates} and the agent eventually moves
 on).
 
@@ -971,23 +1017,23 @@ is $10 \times \tfrac{1}{1+0} = 10$ times novelty. In a room jammed to twice capa
 times novelty: the same painting pays a third as much when packed. The number that matters
 is that it is \emph{still positive}, so a crowded Botticelli still beats skipping it. This is
 a deliberate calibration. An earlier, harsher crowd term drove the discounted value below the
-reward of simply walking past, and then the optimiser rationally skipped the masterpiece,
+reward of simply walking past and then the optimiser rationally skipped the masterpiece,
 producing a ``fake art lover'' who speed-ran the famous rooms. Shrinking $\alpha$ until a
 crowded masterpiece is still worth entering is what made the modelled connoisseur behave like
 one. As for novelty: it decays with each minute you stay, so after enough time in a room the
-marginal minute pays almost nothing, and moving on becomes the better action without any
+marginal minute pays almost nothing and moving on becomes the better action without any
 explicit ``you are bored now'' rule. Satiation, not a timer, is what ends a visit to a room. The other terms each fix a specific failure: $r_{\text{closing}}$ is a pressure that
 grows as closing nears and you are far from an exit, so the agent leaves on time;
 $r_{\text{completion}}$ is a one-off bonus for fully appreciating a must-see;
 $r_{\text{checkin}}$ rewards arriving inside a booked window and $r_{\text{wait}}$ gently
 penalises idling for one; $r_{\text{time}}$ is a small per-step cost so dithering is never
 free. The booking phase adds a few more: a penalty for declining a masterpiece (since these
-profiles always want all three), a no-show penalty for booking a slot and missing it, and,
+profiles always want all three), a no-show penalty for booking a slot and missing it and,
 decisively, an \key{immediate off-pace penalty} $\text{mismatch}_k \cdot |\text{window} -
 \text{estimate}|$ paid at booking time. That last one matters for a reason we come to
 below.
 
-\subsection{The fill curve, and why ``book early'' is a real decision}
+\subsection{The fill curve and why ``book early'' is a real decision}
 
 Booking is only interesting because slots are scarce on busy days. A slot is available only
 if the lead time is long enough:
@@ -999,7 +1045,7 @@ The busier the day, the larger the right-hand side, so the longer ahead you must
 secure a popular masterpiece. Book late on a packed day and the good slots are simply gone,
 and you miss the painting entirely, which is a large loss of reward. Book early and you
 lock in well-spaced windows. There is no downside to booking early; the only question is
-how early, and the agent has to \emph{discover} that the answer rises with the crowd. This
+how early and the agent has to \emph{discover} that the answer rises with the crowd. This
 is the heart of the centerpiece result.
 
 \subsection{Why this is hard: the credit-assignment problem}
@@ -1012,14 +1058,14 @@ hundreds of minutes later at check-in. So the reward that should teach ``you boo
 late'' is separated from the booking action by a vast stretch of unrelated walking. A
 far-sighted discount ($\gamma = 0.999$) is necessary to carry the signal back that far, but
 it is not sufficient: a faint signal smeared across four hundred steps produces a tiny,
-noisy gradient on the booking action, and early versions of the agent only half-learned the
+noisy gradient on the booking action and early versions of the agent only half-learned the
 lesson (a blurry mix of lead times, two-and-a-bit masterpieces secured at the packed crowd).
 The cure was to manufacture a \key{local proxy} for the distant outcome: the immediate
 off-pace penalty $\text{mismatch}_k \cdot |\text{window} - \text{estimate}|$, paid right at
 booking time, which is large exactly when the booked window is far from when the agent can
 realistically arrive. Now the agent feels a consequence \emph{immediately}, correlated with
-the distant one, and the gradient has something nearby and strong to follow. This single
-trick is what turned ``book early'' from half-learned to crisply learned, and it is a
+the distant one and the gradient has something nearby and strong to follow. This single
+trick is what turned ``book early'' from half-learned to crisply learned and it is a
 beautiful illustration of a general principle: when the true reward is too far away to
 teach, engineer an honest local signal that points the same way.
 
@@ -1032,17 +1078,17 @@ First, the agent is \emph{not} allowed to decline all three masterpieces. We tri
 a free ``decline'' button and both visitor types collapsed to declining everything (we
 explain why in the failures section: a free skip is a classic do-nothing trap). We treat
 ``always books the three masterpieces'' as a \key{type characterisation}, a fact about who
-these visitors are, nobody flies to Florence and skips all of Botticelli, Leonardo, and
+these visitors are, nobody flies to Florence and skips all of Botticelli, Leonardo and
 Raphael, rather than something the agent must rediscover. The genuinely learned decision is
-the \emph{lead time}, and that is what we report.
+the \emph{lead time} and that is what we report.
 
 Second, the agent needs an estimate of when it will arrive at each masterpiece in order to
-judge a booking, and that estimate is computed once from reference walks and then
+judge a booking and that estimate is computed once from reference walks and then
 \key{frozen} during training. The reason is subtle and important: if the arrival estimate
 were updated online from the agent's own past arrivals, it would become a function of the
 policy that is itself feeding the policy, a self-referential loop that drifts (again, see
 the failures section). Freezing it breaks the loop. This is an assumption, but a transparent
-one, and the qualitative lesson (book earlier when busier) does not depend on its exact
+one and the qualitative lesson (book earlier when busier) does not depend on its exact
 value.
 
 % =============================================================================
@@ -1055,7 +1101,7 @@ understand these, you can look at any of the project's tables and explain it.
 
 \subsection{Why Q-learning and Double-Q tie on the toy (83.3 vs 83.1)}
 
-\why{Because overestimation, the only thing Double-Q fixes, is born of noise, and the toy
+\why{Because overestimation, the only thing Double-Q fixes, is born of noise and the toy
 has none.} The crowd waves are deterministic and the rewards are a fixed function of
 (state, action), so at convergence there is no random jitter in the TD target for the
 $\max$ in equation~\eqref{eq:qupdate} to inflate (equation~\eqref{eq:jensen} bites only when
@@ -1065,10 +1111,10 @@ which both share equally. Predicted consequence: the moment we move to a genuine
 stochastic environment, this tie should break in a way that hurts the single-table method,
 and it does, in DQN below.
 
-\subsection{Why the handcrafted baselines lose, and the ``smart'' ones lose worst}
+\subsection{Why the handcrafted baselines lose and the ``smart'' ones lose worst}
 
 The learned policies score around $83$; the best hand rule, \key{random}, manages only
-about $35$, and the structured rules are \emph{negative}: \key{peak\_avoidance} $\approx -34$,
+about $35$ and the structured rules are \emph{negative}: \key{peak\_avoidance} $\approx -34$,
 \key{greedy\_least\_crowded} $\approx -43$, \key{default\_path} $\approx -61$,
 \key{greedy\_value\_ratio} $\approx -72$. \why{The negatives come from the closing-time and
 step-cost terms in the reward: a fixed rule that mistimes its visit gets caught wandering
@@ -1076,10 +1122,10 @@ as closing nears and pays the egress pressure, while collecting little appreciat
 it stood in crowds.} The reason the \emph{structured} rules do worse than \emph{random} is
 the sharpest point: \key{greedy\_value\_ratio} marches straight at the highest-value room
 \emph{regardless of when}, so it reliably arrives at Botticelli at the peak, exactly the
-worst moment, and the crowd discount in equation~\eqref{eq:rart} guts its reward. A rule
+worst moment and the crowd discount in equation~\eqref{eq:rart} guts its reward. A rule
 that is confidently wrong about timing is worse than one that stumbles around, because the
 random walker at least samples some off-peak minutes. This is the toy's entire moral:
-\emph{when} you visit dominates \emph{whether}, and only the learner discovers it.
+\emph{when} you visit dominates \emph{whether} and only the learner discovers it.
 
 \subsection{Why MaskablePPO wins everywhere}
 
@@ -1100,7 +1146,7 @@ collapses to $2093$, \emph{below} the no-booking baseline of $2680$, while Maska
 $3685$. \why{At low crowd the booking problem is forgiving: many lead times work, so masked
 and unmasked policies converge to the same easy optimum. At the packed crowd the fill curve
 (equation~\eqref{eq:fill}) is at its tightest, only a long lead and precise pacing secure
-the slots, and that knife-edge is exactly where wasting probability on illegal or pointless
+the slots and that knife-edge is exactly where wasting probability on illegal or pointless
 moves is fatal. The unmasked policy cannot reliably hold the tight requirement and degrades
 into something worse than not booking at all.} The masking is decisive precisely where the
 decision is hard, which is why the gap appears only in that corner of the grid and is
@@ -1109,11 +1155,11 @@ reproducible across all five seeds.
 \subsection{Why DQN is crowd-fragile and high-variance}
 
 DQN's value-based baseline on the art lover falls from about $4527$ at the quiet crowd to
-$2044$ at the packed crowd, and its bars carry the widest error bars in the figure, with
+$2044$ at the packed crowd and its bars carry the widest error bars in the figure, with
 standard deviations up to roughly $\pm 2600$ across seeds. \why{This is section~\ref{sec:doubleq}'s
 overestimation returning to collect its debt. The full museum is genuinely stochastic, so
 the value targets are noisy; the $\max$ in equation~\eqref{eq:dqn} then inflates them
-(Jensen again), and plain DQN, unlike Double-Q, has no mechanism to cancel the bias. The
+(Jensen again) and plain DQN, unlike Double-Q, has no mechanism to cancel the bias. The
 inflation grows with the crowd because a busier museum is a noisier one, which is why the
 collapse tracks the crowd. And because value-based bootstrapping off a moving target is
 sensitive to initialisation and replay order, different seeds land in very different
@@ -1125,7 +1171,7 @@ toy is exactly what makes it fragile here; the contrast is the point of includin
 The learned lead time rises with the crowd: the art lover goes from booking $7$ days ahead
 when quiet to $35$ days ahead when busy; the tourist from $7$ to about $21$. \why{The fill
 curve makes late booking on a packed day forfeit the masterpieces, a large reward loss
-under equation~\eqref{eq:rart}, and the far-sighted discount $\gamma = 0.999$ lets that
+under equation~\eqref{eq:rart} and the far-sighted discount $\gamma = 0.999$ lets that
 distant loss reach back to the booking action. But a delayed loss alone is a weak teacher,
 the gradient for a payoff hundreds of steps away is faint, which is why early versions only
 half-learned it. The immediate off-pace penalty $\text{mismatch}_k\cdot|\text{window}-
@@ -1136,32 +1182,32 @@ well-placed local signal.
 
 \subsection{Why the tourist is rock-stable but the art lover at max crowd is a coin-flip}
 
-This is the subtlest reading, and the one the five seeds exist to reveal. The tourist's
-intervened scores have essentially zero spread across seeds at every crowd, and its lift is
+This is the subtlest reading and the one the five seeds exist to reveal. The tourist's
+intervened scores have essentially zero spread across seeds at every crowd and its lift is
 a steady $+36\%$ to $+38\%$. The art lover's lift is healthy at the quiet and busy crowds
 ($+39\%$, $+29\%$) but at the packed crowd it averages only $+20\%$ \emph{with a huge
-standard deviation} of about $\pm 1900$: four of the five seeds reach roughly $+41\%$, and
+standard deviation} of about $\pm 1900$: four of the five seeds reach roughly $+41\%$ and
 one seed collapses to a score well below the baseline.
 
 \why{The difference is the shape of the optimisation landscape for each profile. The tourist
-has short dwell times, cares about only a handful of recognisable rooms, and is only mildly
+has short dwell times, cares about only a handful of recognisable rooms and is only mildly
 crowd-averse, so its optimal visit is simple and essentially unique; every seed rolls down
-to the same solution, and with deterministic evaluation that yields identical scores.} The
-art lover is the opposite: long dwells, value in many rooms, and strong crowd-aversion, so
+to the same solution and with deterministic evaluation that yields identical scores.} The
+art lover is the opposite: long dwells, value in many rooms and strong crowd-aversion, so
 at the packed crowd the optimum is a knife-edge, book the longest lead \emph{and} pace a
 long, crowd-sensitive visit so every window is met before closing. \why{That narrow optimum
-sits next to a basin of failure, and which one a given training run falls into depends on
+sits next to a basin of failure and which one a given training run falls into depends on
 its seed. Four seeds find the knife-edge ($+41\%$); one slips into the failure basin and
 collapses. Averaging gives the modest $+20\%$ with the wide band.} The honest way to report
-this cell, and the way the figure now shows it, is the mean with its error bar: the
+this cell and the way the figure now shows it, is the mean with its error bar: the
 intervention usually delivers a large gain for the art lover even at maximum crowd, but at
-that single hardest cell the result is not guaranteed, and the spread says so.
+that single hardest cell the result is not guaranteed and the spread says so.
 
 \subsection{Why all three masterpieces are secured at every crowd}
 
 Across every cell the agent ends up with $3/3$ masterpieces booked and checked in.
 \why{This is the do-nothing trap, resolved by design (section~\ref{sec:modelling}): because declining is
-not an available action, the only question the agent optimises is the lead time, and with
+not an available action, the only question the agent optimises is the lead time and with
 the fill curve the way to keep all three is simply to book early enough.} So securing all
 three is not a surprising feat of intelligence; it is the consequence of removing an
 unrealistic escape hatch and letting the agent solve the one real problem, when, rather than
@@ -1185,7 +1231,7 @@ and the fill curve (equation~\eqref{eq:fill}) is a threshold: below the required
 slot is simply unavailable, above it the slot is secured. So the agent has no reason to pick
 a middle value, it picks the smallest offered lead that clears the threshold for the current
 crowd.} The discreteness of the curve in the figures is therefore a faithful picture of a
-discrete decision, not a plotting artifact, and the jump to $35$ at the packed crowd is the
+discrete decision, not a plotting artifact and the jump to $35$ at the packed crowd is the
 agent reporting that nothing shorter would clear the threshold.
 
 % =============================================================================
@@ -1214,18 +1260,18 @@ Curriculum / CRN / seeds & Ramp difficulty; fix the test crowds; repeat runs. & 
 \noindent\emph{The single thread through all of it:} value-based methods take a maximum
 over their own noisy estimates and so flatter themselves when the world is noisy;
 policy-gradient methods nudge probabilities and do not. That one difference, plus the free
-gift of action masking, explains the ranking of the algorithms, and the shape of each
+gift of action masking, explains the ranking of the algorithms and the shape of each
 profile's reward landscape explains the spread of the numbers within the winner.
 
 % =============================================================================
 \section{Failures as reinforcement-learning lessons}
 % =============================================================================
 
-Most of the project was spent being wrong in instructive ways, and each mistake maps onto a
+Most of the project was spent being wrong in instructive ways and each mistake maps onto a
 named, general phenomenon in reinforcement learning. Understanding these is as valuable as
 understanding the algorithms, because they are the traps you fall into whenever you try to
 make an agent want the right thing. We present five, each as a symptom, the underlying
-concept, and the fix.
+concept and the fix.
 
 \subsection{The unlearnable reward (sparse, all-or-nothing signals)}
 
@@ -1237,7 +1283,7 @@ day ended. The obvious fix, ``zero out all your reward if you fail to exit,'' ma
 nearly flat: almost every policy fails to exit, so almost every policy gets the same zero,
 and a function that is flat across policies has \emph{no gradient}. Gradient descent needs a
 slope to walk down; an all-or-nothing terminal wipe gives it a cliff surrounded by a
-plateau, and from the plateau nothing points toward the cliff edge. The agent cannot learn
+plateau and from the plateau nothing points toward the cliff edge. The agent cannot learn
 what it cannot feel a gradient toward.
 
 \emph{Fix.} Replace the wipe with a \key{dense} signal: a per-step egress pressure that grows
@@ -1257,7 +1303,7 @@ sensible reward.
 extracted from the current room}, but that quantity was not in the observation. The decision
 was therefore not \key{Markov} in the state the policy could see (recall section~\ref{sec:vocab}): the
 agent was being asked to act on a hidden variable. This is a \key{partially observed} problem
-(a POMDP), and no amount of training fixes it, because the information simply is not there to
+(a POMDP) and no amount of training fixes it, because the information simply is not there to
 condition on.
 
 \emph{Fix.} Put the missing variable into the state. We added a per-room
@@ -1272,7 +1318,7 @@ optimal action depends on, or you are not solving the MDP you think you are.
 meant to discourage lingering produced \emph{looping}; a strong pull toward completing a tour
 produced \emph{ping-pong} between two rooms.
 
-\emph{Concept.} Every term you add to a reward is a new objective, and the optimiser will
+\emph{Concept.} Every term you add to a reward is a new objective and the optimiser will
 satisfy it in whatever way scores highest, including ways you did not intend. This is
 \key{reward hacking}: circling a loop technically avoided the boredom penalty more cheaply
 than exiting did; an over-weighted completion pull made oscillating between two ``progress''
@@ -1281,20 +1327,20 @@ obeying, too literally, a reward we wrote carelessly.
 
 \emph{Fix.} Remove the boredom penalty entirely and reduce the tour pull to a gentle nudge,
 letting the satiation term carry ``stop lingering'' on its own. The lesson: prefer the
-\emph{minimal} shaping that points the right way, and stress-test every term by asking
-``what is the cheapest way for a ruthless optimiser to collect this, and is that what I
+\emph{minimal} shaping that points the right way and stress-test every term by asking
+``what is the cheapest way for a ruthless optimiser to collect this and is that what I
 want?''
 
 \subsection{The do-nothing trap (a safe action with delayed reward)}
 
 \emph{Symptom.} Given a free ``decline this masterpiece'' button, both visitor types learned
-to decline all three, even though booking was worth far more, and even after a curriculum
+to decline all three, even though booking was worth far more and even after a curriculum
 that first showed booking paying off.
 
 \emph{Concept.} Declining is \emph{immediately safe}, costs nothing right now, while the
 reward for booking is \emph{delayed} to check-in. Faced with a safe-now option versus a
 better-but-later one, an optimiser that has not yet learned the delayed payoff will park on
-the safe action, and once parked it stops exploring the alternative, so it never discovers
+the safe action and once parked it stops exploring the alternative, so it never discovers
 the payoff. This is a \key{do-nothing local optimum}, a close relative of the
 exploration problem: the agent is stuck on a hill that is locally fine and globally poor.
 
@@ -1310,7 +1356,7 @@ strong enough to bridge the delay.
 update, until it ``planned'' to arrive at closing, even on a fixed, sensible walk.
 
 \emph{Concept.} The arrival estimate was an online average of the agent's \emph{own} past
-arrivals, and it fed back into the policy that produced those arrivals. A quantity that is a
+arrivals and it fed back into the policy that produced those arrivals. A quantity that is a
 function of the policy's history, feeding the policy, is a feedback loop; any small drift
 compounds, like an alarm clock you keep resetting to whenever you happened to wake up. It
 also makes the environment \key{non-stationary} from the agent's point of view: the rules it
@@ -1329,36 +1375,36 @@ A handful of questions come up every time these results are presented. Answering
 collects the guide's ideas into a few sharp points.
 
 \paragraph{Is a bigger reward number always the goal?} No. The reward is a tool we
-\emph{designed} to point the agent at behaviour we want, and the agent will maximise exactly
+\emph{designed} to point the agent at behaviour we want and the agent will maximise exactly
 what we wrote, loopholes included (the reward-hacking failure). A higher number is only
 ``better'' if the reward faithfully encodes good behaviour. Half the project was getting the
 reward to mean what we intended, not getting the agent to maximise it.
 
 \paragraph{Why not just compute the optimal visit with a solver?} Because it is not a static
 puzzle. The crowd is stochastic and only partially observed, the payoff for a booking is
-delayed by hundreds of steps, and a good policy must generalise to crowds it has never
+delayed by hundreds of steps and a good policy must generalise to crowds it has never
 exactly seen. A shortest-path solver answers ``given this fixed map, what is the quickest
 route?''; our question is ``what should I decide now, under uncertainty about what comes
 next, to do well on average across many possible days?'' That is a sequential decision
-problem, and learning is the natural tool for it.
+problem and learning is the natural tool for it.
 
 \paragraph{Why does the more advanced method sometimes lose?} Because ``advanced'' is not
 ``better for this problem.'' Double Q-learning is a genuine improvement on Q-learning
-\emph{when there is overestimation to remove}, and on the deterministic toy there is none,
+\emph{when there is overestimation to remove} and on the deterministic toy there is none,
 so it ties. DQN is a powerful method, but its $\max$ over noisy values is a liability on a
 noisy crowd, where PPO's max-free, clipped updates are simply better suited. The competent
-move is to match the method to the structure of the problem, and our results are a
+move is to match the method to the structure of the problem and our results are a
 case study in what happens when you do and do not.
 
 \paragraph{Why average five seeds rather than report the best run?} Because the best run is
-cherry-picking, and it can hide fragility. The art-lover/max-crowd cell looks like a clean
+cherry-picking and it can hide fragility. The art-lover/max-crowd cell looks like a clean
 $+41\%$ on a lucky seed, but across five it is revealed as a coin-flip between a large gain
 and a collapse. The mean with its standard deviation is the honest summary: it states both
 the typical outcome and how much we can trust it.
 
 \paragraph{If we hand the agent the legal moves, is it really learning?} Yes, it is learning
 the part that matters. Masking removes only the trivial sub-problem of which moves physically
-exist; the agent still has to learn \emph{when} to book, \emph{how far} ahead, and how to
+exist; the agent still has to learn \emph{when} to book, \emph{how far} ahead and how to
 pace a long visit so every window is met before closing. We deliberately spend its capacity
 on those genuine decisions rather than on rediscovering the floor plan.
 
