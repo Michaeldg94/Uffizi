@@ -327,7 +327,8 @@ The masterpiece bands (\code{A9}, \code{A36}) cool from red toward orange and th
 \end{columns}
 \vfill
 \emp{Debatable:} the 60/30/10 split and the dwell and crowd calibration are modelling choices; the fill
-curve is calibrated, not fitted; the as-is museum hides the real entry choice (book or queue).
+curve is calibrated, not fitted; the optimal visitor is one best response, not a crowd equilibrium; the
+as-is museum hides the real entry choice (book or queue).
 \end{frame}
 
 % --- 17. Thank you ----------------------------------------------------------
@@ -620,6 +621,28 @@ $2048$ steps, batch $256$, $10$ epochs, GAE $\lambda=0.98$, clip $0.2$, entropy 
 \end{itemize}
 \end{column}
 \end{columns}
+\vfill
+\end{frame}
+
+% --- A16. Limitations and next steps ----------------------------------------
+\begin{frame}{Backup: limitations and where we would go next}
+\small
+\vfill
+\textbf{One visitor, not a crowd.} What we optimise is a single sophisticated visitor's best response to
+a \emp{fixed} crowd. It is not an equilibrium: if every visitor booked this way the good slots would
+fill faster and the fill curve itself would move. Closing that loop, a mean-field game over the whole
+population, is the real next step.
+\vfill
+\textbf{Fixes we did not run.} Our toy isolates the overestimation that makes DQN crowd-fragile, yet we
+never tried the obvious cure, Double-DQN, on the full task. Two experiments would sharpen the story: a
+fixed-heuristic booker (``always reserve a month out'') as a tougher baseline than no-booking, plus an
+ablation that switches the off-pace penalty off to confirm that booking early is learned rather than
+coaxed.
+\vfill
+\textbf{What is baked in.} The connoisseur always books (a trait, not a trick to win); lead times are
+four discrete values; the fill curve is calibrated rather than fitted to real booking data; the policy
+is a plain feedforward net carrying appreciation-progress, with $\gamma=0.999$. Welfare, finally, is the
+simulator's own visitor-utility, itself a modelling choice rather than a settled social objective.
 \vfill
 \end{frame}
 

@@ -251,7 +251,7 @@ choosing the action with the largest entry in the row. Double-Q stores \emph{two
 updates them with the decorrelated rule (equation~\eqref{eq:doubleq}), choosing by the average
 of the two. Same state, same actions, same reward, same return, same discount.
 
-\paragraph{Where do the toy reward numbers come from?} They are hand-tuned \emph{shaping}
+\paragraph{Where the toy reward numbers come from.} They are hand-tuned \emph{shaping}
 constants, not derived quantities and what matters is their \emph{relative} size rather than
 the absolute values (multiplying every reward by the same factor leaves the optimal policy
 unchanged). Each one buys a specific behaviour:
@@ -514,10 +514,32 @@ the visit).
 $37$ minutes of spare time, which is why the agent is on the first floor heading out.
 \end{itemize}
 
-\emph{What differs between the algorithms within the RAMA task} is only the machinery: DQN
-outputs a value $Q(s,a)$ and acts greedily; PPO outputs action probabilities and samples;
-MaskablePPO is PPO with illegal actions forced to zero before sampling
-(equation~\eqref{eq:mask}).
+\emph{What differs between the algorithms within the RAMA task} is only the \emph{machinery}. The five
+elements (state, actions, reward, return, discount) are identical; what changes is how each method
+\emph{represents} its policy and how it \emph{updates} it.
+\begin{description}[leftmargin=0pt,style=nextline,itemsep=3pt]
+\item[DQN, value-based.] DQN learns a \emph{value} $Q(s,a)$, its estimate of the long-run return of
+taking action $a$ in state $s$. It has no explicit policy: it simply acts \emph{greedily}, taking the
+action with the largest $Q$ (with an occasional $\varepsilon$-greedy random move to keep exploring). It
+learns off-policy from a replay buffer of past transitions and a slowly-updated target network, by the
+same temporal-difference rule as the toy. Its weakness is the $\max$ in that rule: on a noisy,
+stochastic task it systematically \emph{overestimates} values, which is exactly the crowd-fragility we
+saw (its baseline fell $4527\to2044$).
+\item[PPO, policy-gradient.] PPO learns the policy \emph{directly}, outputting a probability for each
+action and \emph{sampling} from it, so exploration is built in rather than bolted on. A separate value
+head (the critic) tells it whether an action did better or worse than expected (the advantage); it
+nudges the probabilities accordingly, but only a little per step: the clipped objective refuses to move
+the policy too far in one update, which is what keeps it stable. It is on-policy, learning from its own
+fresh rollouts.
+\item[MaskablePPO, PPO that knows the rulebook.] Identical to PPO, with one change: before the action
+probabilities are formed, the scores of all \emph{illegal} moves are set to $-\infty$, so the softmax
+gives them exactly zero probability (equation~\eqref{eq:mask}). The agent never wastes a sample or a
+gradient on a move that does not exist, which is decisive in a museum where only a few of the
+$\sim$100 actions are legal from any room.
+\end{description}
+So the same problem is attacked three ways: estimate every action's value and act greedily (DQN), learn
+a stochastic policy and sample from it (PPO), or do that while masking the illegal moves (MaskablePPO).
+The state, the reward and the goal never change; only the algorithm does.
 
 \paragraph{A note on the real Uffizi.} Our ``booking'' is the \key{RAMA} intervention we
 \emph{propose}: timed slots for the masterpiece rooms, which do not exist today. It should not
@@ -559,14 +581,34 @@ we can keep a giant lookup table with one entry for every (state, action) pair a
 fill in the numbers. This is \key{tabular} Q-learning and it is the cleanest way to see
 the core idea before neural networks complicate the picture.
 
-\paragraph{What the toy state actually is.} Concretely, the toy state is a five-part label:
-which room you are in, which of ten time-slices of the day it is, how crowded Botticelli is
-(quantised to four levels), how crowded Leonardo is (four levels) and a small bitmask of
-which masterpieces you have already seen. Multiply those possibilities together and you get
-on the order of a hundred and twenty thousand distinct states, each with a handful of moves.
-That is small enough to keep every cell in memory and to visit each one many times over a
-training run, which is the entire reason the toy exists: it lets us watch the pure algorithm
-fill in a table and converge, with no neural network in the way to muddy what is happening.
+\paragraph{What the toy state actually is.} Concretely, the toy state is a five-part label: which room
+you are in, which of ten time-slices of the day it is, how crowded Botticelli is (quantised to four
+levels), how crowded Leonardo is (four levels) and a small bitmask of which of the six must-see rooms
+you have already seen.
+
+\emph{Where the $\sim$120{,}000 comes from} is just the product of those five ranges:
+\[
+\underbrace{12}_{\text{rooms}}\;\times\;\underbrace{10}_{\text{time-slices}}\;\times\;\underbrace{4}_{\text{Botticelli crowd}}\;\times\;\underbrace{4}_{\text{Leonardo crowd}}\;\times\;\underbrace{2^{6}=64}_{\text{seen-mask}}\;=\;122{,}880 .
+\]
+The seen-mask has one bit per must-see room recording whether you have visited it, so six rooms give
+$2^6=64$ possible masks. Many of those combinations never actually occur in a real visit, so this is an
+upper bound, but it is the right order of magnitude.
+
+\emph{What the table looks like.} Picture a giant spreadsheet with one \emph{row} for each of those
+$\sim$122{,}880 states and one \emph{column} for each move (stay, or step to a neighbouring room). Every
+cell holds a single number, $Q(s,a)$: the agent's current estimate of ``how good is move $a$ from state
+$s$, in the long run.'' A row is therefore the agent's opinion of every option from one exact situation.
+For instance the row for the state
+\[
+s=(\texttt{A11},\ 3,\ 3,\ 1,\ \texttt{000001})
+\]
+(standing in Botticelli's \texttt{A11}, mid-morning time-slice $3$, Botticelli jammed at level $3$,
+Leonardo light at level $1$, having seen only \texttt{A11} so far) holds one value per legal move, each
+saying how good that move is from there. At the start every cell is $0$; training fills them in.
+
+Because the whole grid fits in memory and each cell can be visited many times over a run, tabular
+Q-learning can converge to the exact values, which is the entire reason the toy exists: it lets us watch
+the pure algorithm fill in the table, with no neural network in the way to muddy what is happening.
 
 \subsection{The idea before the equation}
 
@@ -592,28 +634,44 @@ Take it apart. $Q(s,a)$ on the left is the cell we are updating. The arrow means
 Inside the bracket is the \key{temporal-difference error}: the gap between a freshly
 computed, better estimate and the stale one we had. The better estimate, called the
 \key{TD target}, is $r + \gamma \max_{a'} Q(s',a')$: the reward we actually just received,
-plus the discounted value of the best thing we could do from the next state $s'$. The
-term $\max_{a'} Q(s',a')$ is the agent saying ``from where I landed, I will assume I play
-optimally, so I take the largest value in that row.'' We subtract the old guess $Q(s,a)$
-to get the error and $\alpha$ (the \key{learning rate}, we use $0.1$) controls how big a
-nudge we make: small enough to be stable, large enough to learn in reasonable time.
-This is called \key{bootstrapping}, because the estimate is updated toward a target that
-itself contains an estimate ($Q(s',\cdot)$). We pull ourselves up by our own bootstraps,
-and remarkably it converges.
+plus the discounted value of the best move from the next state $s'$ \emph{according to the
+table's current guesses}. That qualifier is the whole trick, so read $\max_{a'} Q(s',a')$
+slowly: it does \emph{not} mean the agent knows the future. It means ``go to the row of the
+table for the state $s'$ I just landed in and read off the largest number already written
+there'' (here $a'$ simply ranges over the moves available from $s'$, stay or step to a
+neighbour). Early in training those numbers are all zero, so the whole term is zero and the
+agent is assuming nothing; it becomes informative only once $s'$ has been visited before and
+its row has filled in. We subtract the old guess $Q(s,a)$ to get the error and $\alpha$ (the
+\key{learning rate}, we use $0.1$) controls how big a nudge we make: small enough to be
+stable, large enough to learn in reasonable time. This is called \key{bootstrapping}, because
+the estimate is updated toward a target that itself contains an estimate ($Q(s',\cdot)$). We
+pull ourselves up by our own bootstraps and, remarkably, it converges.
 
-\paragraph{Watching one cell learn.} Suppose the cell $Q(s,a)$ currently holds $0$ (we
-know nothing yet), the agent takes $a$, receives reward $r = 5$ and lands in a state
-$s'$ whose best known move is worth $\max_{a'}Q(s',a') = 20$. With $\gamma = 0.99$ and
-$\alpha = 0.1$, the TD target is $5 + 0.99\cdot 20 = 24.8$, the TD error is
-$24.8 - 0 = 24.8$ and the new value is $0 + 0.1\cdot 24.8 = 2.48$. We did not jump all the
-way to $24.8$; we moved a tenth of the way, because $\alpha$ keeps each lesson small so
-that one unlucky step cannot overwrite everything. The next time the agent visits the
-same cell it nudges again and again and the value creeps toward its true long-run worth.
-Notice what just happened conceptually: information about the good state $s'$ (worth $20$)
-flowed \emph{backward} into the value of the earlier move $a$. Do this for every cell,
-millions of times and value seeps backward from the exit and the masterpieces all the way
-to the entrance, until the table encodes a coherent long-run plan even though every single
-update only ever looked one step ahead.
+\paragraph{Watching one cell learn, starting from genuine ignorance.} Take the \emph{very
+first} time the agent is ever in state $s$ and tries move $a$. The whole table is still
+zeros, so $Q(s,a)=0$ and every entry in the row for wherever it lands, $s'$, is also $0$. It
+receives, say, $r=5$. The TD target is $r+\gamma\max_{a'}Q(s',a') = 5 + 0.99\cdot\mathbf{0} =
+5$: the $\max$ term is zero because nothing about $s'$ has been learned yet, so on this first
+visit the agent is \emph{not} assuming any clever future, it is only recording ``that move
+paid $5$.'' With $\alpha=0.1$ the new value is $0 + 0.1\,(5-0) = 0.5$. That is all a first
+visit ever does: nudge one cell a little way toward the immediate reward. There is no
+$20$ anywhere yet; no ``next move'' is actually chosen; the $\max$ is just a look-up that
+happens to read zero.
+
+Now jump forward. After many episodes the agent has passed through $s'$ often and its row has
+filled in; suppose its best entry now reads $\max_{a'}Q(s',a')=20$. Read that carefully:
+$Q(s',a')$ is not the reward of one next move, it is the whole \emph{discounted stream} of
+rewards the agent expects to collect by playing well from $s'$ onward (the masterpiece
+appreciation, the exit bonus, minus the step costs, each shrunk by $\gamma$ for every step it
+lies in the future). The $20$ is a \emph{learned} estimate of that long-run stream, built up
+from $s'$'s own earlier visits, not foresight and not the value of the single next step. The next time the agent takes $a$ and
+lands in $s'$, the target becomes $5+0.99\cdot 20 = 24.8$, the error is $24.8-Q(s,a)$ and
+$Q(s,a)$ is nudged upward, a tenth of the way, because $\alpha$ keeps each lesson small. So the
+$20$ was never known on day one; it accumulated later and now flows one step further
+\emph{backward} into $s$. Do that for every cell, over and over, until value has seeped
+backward from the exit and the masterpieces all the way to the entrance; the table then
+encodes a coherent long-run plan even though every single update only ever looked one step
+ahead.
 
 \paragraph{Off-policy and why that word matters.} Q-learning is \key{off-policy}: the
 $\max$ in the target assumes the agent will act \emph{optimally} from $s'$ onward, even
@@ -662,54 +720,117 @@ Q-learning has a famous, subtle flaw and the project includes a second algorithm
 specifically to fix it. Understanding the flaw is worth a page because it also explains a
 result that surprises people: on our toy, the ``improved'' algorithm does \emph{not} win.
 
-\subsection{Why a single table is an optimist}
+\subsection{The problem: a single table is a chronic optimist}
 
-Look again at the TD target $r + \gamma \max_{a'} Q(s',a')$. While learning, the values in
-the table are not yet correct; they are noisy estimates, some too high, some too low. Now
-ask what the $\max$ does to noise. If several actions have the same true value but your
-estimates are noisy, the $\max$ will, almost by definition, pick the one whose noise
-happened to be \emph{positive}. So the maximum of noisy estimates is, on average, larger
-than the maximum of the true values. Formally this is \key{Jensen's inequality}:
+Plain Q-learning has one built-in flaw. Naming it is half the battle. It does not just
+make random errors; it makes a \emph{one-sided} error. Its action-values drift \emph{too high}
+on average, never too low, so the agent walks around believing the future is rosier than it
+really is. The name for this is \key{maximisation bias}, or \key{overestimation}; here is
+exactly where it comes from.
+
+Look again at the TD target, $r + \gamma \max_{a'} Q(s',a')$. The only moving part is the
+$\max$: ``of all the moves from $s'$, take the value of the best one.'' Everything hinges on what
+those numbers in the row actually are, so let us slow right down.
+
+\paragraph{What a noisy estimate is.} An entry $Q(s,a)$ is not a fact we looked up; it
+is a \emph{running average} the agent has been assembling from experience, a tenth of a nudge at a
+time. At any instant it is best read as a true value plus an error:
+\[
+Q(s,a)\;=\;\underbrace{\text{the true long-run value}}_{\text{the signal we are after}}\;\;+\;\;\underbrace{\text{an error}}_{\text{how far off this estimate is right now}}.
+\]
+That error is almost never exactly zero.
+
+\paragraph{Why averaging over many walks still leaves an error.} It is tempting to call the
+estimate exact, since it is an average over many walks. But averaging only removes the error when every
+walk gives the same answer; here three things keep it from doing so.
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \emph{Not enough walks yet.} Mid-training a cell may have been visited only a handful of times;
+with a learning rate of $0.1$ each visit moves it just a tenth of the way. The number is a
+\emph{partial} average, still drifting toward the truth rather than sitting on it.
+\item \emph{The world is random.} In the real museum the crowd is different every day, so the
+\emph{same} move from the \emph{same} room pays a \emph{different} reward each visit. The average of
+those random rewards has its own wobble: it lands a touch high on some cells and a touch low on
+others, so that wobble never fully disappears however many walks you take.
+\item \emph{The target is itself a guess.} The TD target leans on $Q(s',\cdot)$, which is also a
+half-learned, slightly-off number, so the error in $s'$ leaks into $s$.
+\end{itemize}
+The upshot: at any frozen instant the row for $s'$ is not the true values. It is the true values
+jiggled up or down, a different jiggle on every action.
+
+\paragraph{Why a large number cannot be taken at face value.} Because each entry is \emph{value plus error}, one number on the page can
+be large for two completely different reasons that look identical: the move really is good (big
+value, small error), \emph{or} the move is ordinary but its error happened to land high this time
+(small value, big lucky error). From the number alone you cannot tell which. The $\max$ does not even
+try; it simply grabs the biggest entry in the row. Suppose three moves are truly worth the same, say
+$0$, but their current errors read $+3$, $-2$, $+1$. The truth is ``the best is worth $0$,'' yet
+$\max(+3,-2,+1)=+3$, so the target announces $+3$. Next visit the errors read $-1$, $+4$, $0$ and the
+$\max$ is $+4$. You are forever quoting the luckiest of the noisy numbers, never the unlucky ones, so
+the target runs systematically high.
+
+\paragraph{Why the lucky and unlucky errors do not cancel.} You might still expect the $+3$s and the
+$-2$s to wash out on average. They do not, because of one subtle thing: the \emph{same} noisy table is
+used twice in the same breath, once to \emph{choose} which action is best and once to \emph{score} how
+good it is. Those jobs are not independent. The action the table selects is, by construction, the one
+it currently rates highest, so the value it then reads off is the high end of that action's noise,
+every single time. Letting one noisy table both select and evaluate is a recipe for self-flattery.
+Formally it is \key{Jensen's inequality}:
 \begin{equation}
 \mathbb{E}\Big[\max_{a'} Q(s',a')\Big] \;\ge\; \max_{a'} \mathbb{E}\big[Q(s',a')\big].
 \label{eq:jensen}
 \end{equation}
-In words: the expected value of the maximum is at least the maximum of the expected
-values. The agent's TD target is therefore systematically too optimistic. This is
-\key{maximisation bias} or \key{overestimation}: the same noisy table is used both to
-\emph{choose} the best next action and to \emph{score} it and that double duty inflates
-the estimate.
+In words, the expected value of the maximum is at least the maximum of the expected values, so the
+target sits, on average, too high.
 
-\paragraph{A coin-flip example you can feel.} Imagine three moves whose true long-run
-value is exactly $0$. Your estimates are noisy, so on a given step they might read
-$+3, -2, +1$. The truth is that the best move is worth $0$, but $\max(+3, -2, +1) = +3$,
-so your target says ``the best is worth $+3$.'' Another step the noise reads $-1, +4, 0$,
-and the max is $+4$. Average the maxima over many steps and you get a number comfortably
-above $0$, even though no move is actually worth more than $0$. You have convinced yourself
-the future is rosier than it is, purely because you always quote the luckiest of several
-noisy numbers. That is overestimation in one sentence and it compounds: an inflated value
-for $s'$ flows backward through bootstrapping and inflates earlier cells too. Double-Q
-breaks it because the table that \emph{spotted} the lucky $+4$ is not the table asked
-\emph{how much it is really worth}; the second, independently noisy table will, on average,
-quote something near the truth.
+\paragraph{Why it matters here.} An over-optimistic table is not a harmless cosmetic error. The
+inflation at $s'$ flows \emph{backward} through bootstrapping and lifts the cells before it too,
+so the whole table tilts upward. And because the bias is largest exactly where the noise is
+largest, the agent is steered toward actions that merely \emph{looked} good on a lucky read. On
+a quiet, deterministic problem there is no noise to exploit, so the bias vanishes, which is why
+on our toy plain Q-learning and Double-Q come out tied. But on a \emph{stochastic} task, with
+crowds that vary day to day, the noise is real and persistent, so this is precisely the
+overestimation that makes our \texttt{DQN} agent crowd-fragile (its baseline collapses
+$4527 \to 2044$ as the museum fills). The cure, keep two tables so that the one that
+\emph{picks} an action is never the one that \emph{prices} it, is the next subsection.
 
 \subsection{The fix: two tables and a coin}\label{sec:doubleq-fix}
 
-Double Q-learning (van Hasselt, 2010) breaks the self-flattery by keeping \emph{two}
-tables, $Q_A$ and $Q_B$ and on each step flipping a coin to decide which one to update.
-When updating $Q_A$, it uses $Q_A$ only to \emph{pick} the next action, but $Q_B$ to
-\emph{score} it:
+Recall where the bias came from: one table did two jobs at once. It \emph{chose} the best next action
+(the $\max$) and then \emph{read off} that same action's value, so the number it trusted was always the
+lucky-high one. Double Q-learning (van Hasselt, 2010) breaks that by keeping \emph{two} tables ($Q_A$ and
+$Q_B$) and flipping a coin each step to decide which to update.
+
+The two tables are nothing exotic; they are not handed to us from outside. We simply keep \emph{two}
+copies of the same lookup table, both starting at all zeros, maintained side by side. On every step a
+fair coin decides which copy receives that one piece of experience: heads nudges $Q_A$, tails nudges
+$Q_B$. So each table is trained on a \emph{different} random half of the visits. That is the whole source
+of their independence: the tables are not built to disagree, they have simply learned from different
+samples, so wherever one happened to land lucky-high on some action the other most likely did not. Two
+estimates of the same thing, made from different data, is all ``independent noise'' means here.
+
+When the coin says update $Q_A$, it uses
+$Q_A$ only to \emph{pick} the next action but $Q_B$ to \emph{score} it:
 \begin{equation}
 Q_A(s,a)\;\leftarrow\;Q_A(s,a)+\alpha\Big[\,r+\gamma\,Q_B\big(s',\,\textstyle\arg\max_{a'}Q_A(s',a')\big)-Q_A(s,a)\Big].
 \label{eq:doubleq}
 \end{equation}
-The key is the inner part: $\arg\max_{a'}Q_A(s',a')$ asks $Q_A$ ``which action looks
-best?'' and then $Q_B(s', \cdot)$ asks a \emph{different, independently noisy} table ``and
-what is that action actually worth?'' Because the table that chooses is not the table that
-scores, the lucky positive noise that fooled a single table no longer lines up and the
-overestimation largely cancels. At decision time the agent acts on the average
-$\tfrac12(Q_A + Q_B)$. The symmetric update (swap $A$ and $B$) runs when the coin lands the
-other way.
+Read the inner part slowly. $\arg\max_{a'}Q_A(s',a')$ asks the first table ``which action looks best to
+you?'' and hands back that action, call it $a^\star$. Then $Q_B(s',a^\star)$ asks a \emph{second},
+separately trained table ``fine, how much is \emph{that} action really worth?'' The two tables were
+filled in from different coin-flips of experience, so their errors are \emph{independent}: a number that
+came out lucky-high in $Q_A$ has no reason to also be high in $Q_B$.
+
+\paragraph{Why independence kills the inflation.} The crux, in one example. Suppose three moves are truly
+worth $0$ and the first table's noisy reads are $Q_A=(+3,-2,+1)$, so $\arg\max$ picks move~1 (its $+3$
+looks best). With a single table you would now \emph{also} score move~1 at $+3$, the inflated number; that
+is the bias. With two tables you instead ask $Q_B$ for move~1's value; $Q_B$ carries its own independent
+noise, say $Q_B=(-1,0,+2)$, so it prices move~1 at $-1$. The target uses $-1$, not $+3$. And because
+$Q_B$'s error on the selected move is just as likely negative as positive, averaged over many steps $Q_B$
+prices ``$Q_A$'s favourite'' at about its true value, $0$. Selection can still get lucky, but the luck no
+longer carries into the score, so the systematic over-optimism disappears.
+
+At decision time the agent acts on the average of the two tables, $\tfrac12(Q_A+Q_B)$, which is steadier
+than either alone. The update is symmetric: when the coin lands the other way it updates $Q_B$, using
+$Q_B$ to pick and $Q_A$ to score, so neither table is ever both judge and jury.
 
 \subsection{Why it does not help on our toy (and why that is the right result)}
 
@@ -774,14 +895,61 @@ appreciation-progress especially, which is a story the failures section tells. T
 now is that the network reads this whole vector and, because it is a smooth function, can
 treat two similar vectors similarly, the generalisation a table can never manage.
 
-The fix is \key{function approximation}. Instead of storing a separate number for every
-situation, we train a \key{neural network} to compute values or action-probabilities from
-the state. A network is just a flexible function with adjustable knobs (its weights): you
-feed in the state numbers, it multiplies and adds and bends them through a few layers and
-out comes either a value or a probability for each action. Because it is a smooth function,
-it \key{generalises}: nudging the weights to be right about one crowded masterpiece room
-automatically makes it more right about other crowded rooms. We use small networks, two
-hidden layers of 128 or 256 units, which is plenty for this problem.
+The fix is \key{function approximation}; it rests on one plain idea, a \emph{function}. A function
+is just a rule that turns inputs into an output, the same inputs always giving the same output. ``Floor
+area $=$ length $\times$ width'' is a function: feed it two numbers, it hands back one. A lookup table is
+a function too, only a clumsy one: it stores the answer for every possible input as an enormous list of
+(input, output) pairs and looks the answer up when asked. That is fine when there are a hundred thousand
+inputs; it is hopeless when there are astronomically many, as in the full museum, where almost every
+input would never be filled in.
+
+Function approximation replaces that giant list with a compact \emph{formula} that \emph{computes} the
+output from the input, so it never has to store or even visit them all. The formula we use is a
+\key{neural network}: a flexible function with a few hundred adjustable knobs (its \key{weights}). When
+we say the network \emph{computes a value or action-probabilities from the state}, we mean just this:
+you put the state's several hundred numbers in at one end; the network multiplies them by its weights,
+adds the results and bends them through a couple of layers; out the other end come numbers, either a
+single value (how good it is to be in this state) or one probability per action (how likely the agent is
+to take each move). Same state in, same numbers out; change a weight and the numbers it computes shift
+everywhere at once.
+
+That last point is the payoff. Because the network is one smooth formula rather than a heap of unrelated
+cells, it \key{generalises}: nudging the weights to be right about one crowded masterpiece room
+automatically makes it a bit more right about other crowded rooms, since they feed in similar numbers
+and the same formula handles them. A table can never do this; every cell stands alone. We use small
+networks, two hidden layers of $128$ or $256$ units, which is plenty here. This step, swapping a stored
+table for a learned network, is exactly what the word \emph{deep} in ``deep reinforcement learning''
+refers to: the value or the policy is \emph{computed} by a neural network rather than \emph{looked up}.
+By that definition the tabular toy was classical RL, while \texttt{DQN}, \texttt{PPO} and
+\texttt{MaskablePPO} are all deep RL.
+
+\paragraph{Input and output, spelled out with the cat example.} The familiar case is image
+classification: a convolutional network takes an \emph{image} (really just a grid of pixel numbers) at
+the input and produces a label at the output, ``cat: yes or no,'' usually as a probability such as
+$0.92$. Our networks are the same kind of object, numbers in and numbers out; only the numbers mean
+different things. The \emph{input} is never an image here. It is the \key{state vector} we built by hand,
+the eight or twenty-five numbers from the earlier sections (the room, the crowd in each room, the time,
+the windows held, the pace prior). There are no convolutions; it is a plain fully-connected network. The
+\emph{output} depends on which network it is.
+\begin{itemize}[leftmargin=1.4em,itemsep=2pt]
+\item \emph{The policy network} (PPO's actor): out comes one probability per available move. While
+walking, the moves are \{stay, move on\}, so two probabilities that sum to $1$; on the booking screen the
+moves are the four lead times \{$1,7,21,35$\}, so four probabilities that sum to $1$. The agent then
+\emph{samples} its action from that list, exactly as the cat network hands you ``$92\%$ cat'' and you
+call it a cat.
+\item \emph{The value network} (PPO's critic): out comes a \emph{single number}, its estimate of the
+total future reward expected from this state, the $V(s)$ of the advantage discussion. Not a label, not a
+probability, just one score for ``how promising is it to be here.''
+\item \emph{The DQN network}: out comes \emph{one number per move}, the estimated long-run value
+$Q(s,a)$ of each; the agent then takes the move with the largest. This is the closest to the cat
+picture, a score per option, then pick the top.
+\end{itemize}
+So ``the network maps a state to a value or to action-probabilities'' is no more mysterious than ``the
+cat network maps pixels to a yes/no score.'' The forward pass is plain arithmetic either way. The one
+genuine difference is the teacher: a cat network learns from millions of \emph{labelled} images, whereas
+nobody ever tells our network the right action. Its only teacher is the reward, turned into a target (the
+TD error for DQN, the advantage for PPO) that says, after the fact, whether the move it chose came out
+better or worse than expected; the weights are then nudged accordingly.
 
 \paragraph{How a network learns, in plain terms.} A neural network is a stack of
 \key{layers}. Each layer takes the numbers from the previous layer, multiplies them by its
@@ -805,44 +973,122 @@ return, temporal-difference error, are exactly the ones you already have.
 \section{Learning the policy directly: PPO}
 % =============================================================================
 
-There are two broad ways to use a network. One is to keep estimating $Q$ and act greedily,
-the neural descendant of Q-learning; that is DQN and we cover it shortly. The other is to
-skip values as the main object and adjust the \emph{policy} itself, the probabilities of
-each action, so that good actions become more likely. That second family is
-\key{policy-gradient} and our workhorse, \key{PPO} (Proximal Policy Optimisation), lives
-there. PPO is the method behind the project's headline results, so it is worth
-understanding properly.
+Before going further it is worth pinning down two words that have been used loosely,
+\emph{value} and \emph{policy}, because every method below is organised around which of the
+two it chooses to learn. They are different kinds of object. A \key{value} is a
+\emph{prediction}: a number attached to a situation saying how good it is, measured as the
+total future reward you expect to gather from there onward. $Q(s,a)$ is the value of a move,
+$V(s)$ the value of a whole state. A value never tells you what to do; it only rates how
+things stand, a scoreboard, an opinion. A \key{policy}, written $\pi(a\mid s)$, is the
+\emph{behaviour rule} itself: given the state it hands you the probability the agent puts on
+each action, the thing that actually picks the next move. Bluntly, a value is what the agent
+\emph{thinks things are worth}; a policy is what the agent \emph{does}.
+
+You only ever need one of the two in order to act, because they are linked. If your values
+are good you can manufacture a policy from them for free: in every state pick the move with
+the largest $Q$. That is \key{acting greedily}; it is exactly how Q-learning and its
+neural descendant \key{DQN} behave; they never store a policy at all, they keep values and
+read the move off them at the last instant with a $\max$ (we cover DQN shortly).
+\key{Policy-gradient} reverses the priority. It treats the policy as the primary object, a
+box of dials, the action probabilities, that it nudges directly so good actions become more
+likely; it never needs a $\max$ to decide. It may still keep a value nearby as an internal
+helper (the critic of the next subsections, which judges whether a move beat expectation),
+but that value is a tool, not the thing it reports; what it ships is the dial settings. So
+``value-based'' and ``policy-gradient'' come down to a single question, what does the network
+spend its capacity predicting: the worth of the moves, as DQN does, or the probabilities of
+the moves themselves, as PPO does. Our workhorse \key{PPO} (Proximal Policy Optimisation)
+lives in this second family, it is the method behind the project's headline results, so it is
+worth understanding properly.
 
 \subsection{Policy gradient, the core idea}
 
-Forget values for a moment. Suppose the policy is a dial-box of probabilities: in each
-state it assigns some chance to each action and we can turn the dials. The most direct
-imaginable learning rule is: run a whole visit, see how much total reward it earned and
-then turn the dials so that the actions taken on a \emph{good} visit become more likely and
-the actions taken on a \emph{bad} visit become less likely. That is literally the original
-policy-gradient method, called \key{REINFORCE} and its update has the shape
+Forget values for a moment and picture the policy as a dial-box. Inside the agent sits a
+network whose adjustable numbers we call $\theta$ (theta); those numbers are the dials.
+Feed in a state and the box reads its dials and outputs a probability for each action: while
+walking, some chance of \emph{stay} and some chance of \emph{move on}; at the booking screen,
+some chance on each of the four lead times. Turning a dial shifts those output probabilities.
+``Learning'' is nothing more than figuring out which way to turn the dials.
+
+The most direct imaginable rule for turning them is this. Run one whole visit from start to
+finish, letting the agent sample its moves from the current probabilities. Add up the total
+reward that visit earned and call it $G$. Now go back over every move the agent made and turn
+the dials so that, the next time those same states come up, the moves taken on a \emph{good}
+visit (high $G$) become a little more probable while the moves taken on a \emph{bad} visit
+(low $G$) become a little less probable. Repeat for thousands of visits. That is literally
+\key{REINFORCE}, the original policy-gradient method, whose update has the shape
 \begin{equation}
 \theta \;\leftarrow\; \theta \;+\; \eta \, G \, \nabla_\theta \log \pi_\theta(a\mid s),
 \label{eq:reinforce}
 \end{equation}
-where $G$ is the return the episode earned and $\nabla_\theta \log \pi_\theta(a\mid s)$ is
-the direction in weight-space that makes action $a$ more probable. Multiplying by $G$ means:
-if the episode was good ($G$ large and positive), step in the direction that increases the
-probabilities of the actions you took; if it was bad, step the other way. Over many
-episodes the dials drift toward whatever earns reward. No values, no $\max$, just ``do more
-of what worked.''
+Reading the symbols one at a time:
+\begin{itemize}
+\item $\theta$ is the dial-box itself, the whole set of network numbers. The arrow
+$\leftarrow$ just means we overwrite the old setting with a slightly adjusted one.
+\item $\eta$ (eta) is the step size, how far we are willing to turn the dials in a single
+update. Small $\eta$ means cautious nudges; large $\eta$ means bold turns.
+\item $G$ is the return, the total (discounted) reward the finished visit earned. It is one
+number standing in for the whole visit.
+\item $\pi_\theta(a\mid s)$ is the policy's output: the probability it puts on move $a$ when
+the state is $s$. The bar $\mid$ reads ``given,'' so the symbol reads ``the chance of move
+$a$ given that we are in state $s$.'' It is the probability of an \emph{action}, never the
+probability of the weights; $\theta$ does not have a probability here at all. The
+subscript $\theta$ only labels \emph{which} dial setting produced that number, exactly as
+$f_\theta(x)$ means ``the function $f$ with its knobs set to $\theta$.'' Turn the dials and
+the same state $s$ hands back different action probabilities, which is the whole point: the
+dials are what we are trying to set well.
+\item $\nabla_\theta \log \pi_\theta(a\mid s)$ is the heart of the rule. The symbol
+$\nabla_\theta$ means ``with respect to $\theta$,'' that is, how a quantity moves as we wiggle
+each weight, one slope per dial, gathered into a list as long as the number of weights. We
+take the gradient with respect to $\theta$ and nothing else because the weights are the only
+things we are allowed to change; the state $s$ and the move $a$ are fixed facts of the visit
+just played. So the whole term is the single nudge, spread across all the dials at once, that
+would most raise the probability the box puts on the move $a$ it actually took in state $s$.
+It points in the direction of \emph{more of that move}. (The $\log$ is there for a clean
+mathematical reason, it makes the average of these nudges line up exactly with the true
+gradient of expected reward; for intuition you can ignore it and just read ``make $a$ more
+likely.'')
+\end{itemize}
+Now the whole line reads naturally. Everything to the right of the plus sign is
+$\Delta\theta$, the change we add to the dials. The gradient term gives the direction that
+makes the move just taken more likely; multiplying by $G$ scales that step and sets its
+\emph{sign}. If the
+visit was good ($G$ large and positive) we take a big step in the more-likely direction, so
+every move on that visit gets reinforced. If the visit was bad ($G$ small, or shaped to be
+negative) the sign flips and we step the other way, making those moves less likely. Over
+thousands of visits the dials drift toward whatever reliably earns reward. No values, no
+$\max$ over actions, just ``do more of what worked.''
 
-The trouble with the raw recipe is \key{variance}. Using the whole-episode return $G$ to
-judge \emph{every} action in that episode is terribly noisy: a single great booking can be
-buried inside an otherwise mediocre visit and a clumsy move can ride the coat-tails of a
-lucky day. The learning signal is unbiased on average but jumps around so much that training
-is painfully slow. Two ideas tame it and together they turn REINFORCE into a method that
-actually works at scale. First, instead of judging an action by the whole return, judge it
-by how much better things went than \emph{expected}, which requires something that predicts
-the expectation. Second, take small, controlled steps so the noisy signal cannot blow the
-policy up on any single batch. The first idea gives us the critic and the advantage; the
-second gives us PPO's clipping. The next three subsections are exactly those two ideas, made
-precise.
+Concretely, a visit where the agent booked its slot well ahead of the crowd, paced itself,
+then lingered where the art repaid it ends with a high $G$; REINFORCE raises the probability
+of exactly those choices in exactly those states. A visit that booked late into a packed
+museum and rushed out ends with a low $G$; those choices get shaved down. Nobody ever told
+the agent which booking was correct, the return did the teaching.
+
+This raw recipe has one serious flaw, \key{variance}, which springs from a single design
+choice: $G$ is one number for the \emph{whole} visit, yet we use that same number to grade
+\emph{every} move in it. So a brilliant early booking and a clumsy late detour that happened
+on the same visit are graded identically, both stamped with that visit's $G$. If the visit
+went well overall, the clumsy move gets rewarded for riding along; if it went badly, the
+brilliant booking gets punished for the company it kept. Averaged over enough visits this
+washes out, because genuinely good moves turn up in good visits more often than in bad ones,
+so their dials creep upward in the long run. That is what ``unbiased'' means: the rule aims
+at the right target. But ``variance'' means any \emph{single} estimate scatters wildly around
+that target, since one lucky or unlucky visit can flip the grade on a move that had nothing
+to do with the outcome. You need a huge number of visits before the averages settle, so
+training crawls.
+
+Two ideas fix this and together they turn REINFORCE into something that works at scale. The
+first attacks the variance head on: instead of grading a move by the whole return $G$, grade
+it by how much better things went than \emph{expected}. That needs a second quantity that
+predicts the expectation for each state, which is exactly the \key{critic} (a value function
+$V(s)$); the gap between what actually happened and what it predicted is the \key{advantage}.
+Subtracting the expectation throws away the big chunk of reward that was predictable and
+common to every move in the state, leaving only the part that was special to the move chosen,
+so the numbers shrink and stop thrashing without changing what they point at on average. The
+second idea is caution: take small, controlled steps so one noisy batch of visits cannot
+wrench the dials so far that the policy collapses. That is exactly what PPO's \key{clipping}
+enforces. The next three subsections build these pieces in order: the critic, then the
+advantage, then the clipped step.
 
 \subsection{Actor and critic}
 
@@ -852,7 +1098,7 @@ given a state, it outputs a probability for each action ($\theta$ denotes its we
 expect from there. The actor proposes; the critic judges whether what happened was better
 or worse than expected and that judgement is what tells the actor which way to adjust.
 
-\subsection{The advantage: was that better than expected?}
+\subsection{The advantage: how much better than expected}
 
 The signal the actor learns from is the \key{advantage}, how much better an action turned
 out than the critic's baseline expectation. If you were in a state the critic valued at
@@ -1582,19 +1828,19 @@ beware any state variable that is a function of the policy's own past and feeds 
 policy; either freeze it or model the feedback explicitly.
 
 % =============================================================================
-\section{Common confusions, answered}
+\section{Common confusions}
 % =============================================================================
 
-A handful of questions come up every time these results are presented. Answering them
-collects the guide's ideas into a few sharp points.
+A handful of confusions come up every time these results are presented; addressing them
+collect the guide's ideas into a few sharp points.
 
-\paragraph{Is a bigger reward number always the goal?} No. The reward is a tool we
+\paragraph{A bigger reward number is not the goal.} The reward is only a tool we
 \emph{designed} to point the agent at behaviour we want and the agent will maximise exactly
 what we wrote, loopholes included (the reward-hacking failure). A higher number is only
 ``better'' if the reward faithfully encodes good behaviour. Half the project was getting the
 reward to mean what we intended, not getting the agent to maximise it.
 
-\paragraph{Why not just compute the optimal visit with a solver?} Because it is not a static
+\paragraph{Why a plain solver will not do.} It is not a static
 puzzle. The crowd is stochastic and only partially observed, the payoff for a booking is
 delayed by hundreds of steps and a good policy must generalise to crowds it has never
 exactly seen. A shortest-path solver answers ``given this fixed map, what is the quickest
@@ -1602,7 +1848,7 @@ route?''; our question is ``what should I decide now, under uncertainty about wh
 next, to do well on average across many possible days?'' That is a sequential decision
 problem and learning is the natural tool for it.
 
-\paragraph{Why does the more advanced method sometimes lose?} Because ``advanced'' is not
+\paragraph{Why the more advanced method sometimes loses.} Because ``advanced'' is not
 ``better for this problem.'' Double Q-learning is a genuine improvement on Q-learning
 \emph{when there is overestimation to remove} and on the deterministic toy there is none,
 so it ties. DQN is a powerful method, but its $\max$ over noisy values is a liability on a
@@ -1610,13 +1856,13 @@ noisy crowd, where PPO's max-free, clipped updates are simply better suited. The
 move is to match the method to the structure of the problem and our results are a
 case study in what happens when you do and do not.
 
-\paragraph{Why average five seeds rather than report the best run?} Because the best run is
+\paragraph{Why we average five seeds rather than the best run.} Because the best run is
 cherry-picking and it can hide fragility. The art-lover/max-crowd cell looks like a clean
 $+41\%$ on a lucky seed, but across five it is revealed as a coin-flip between a large gain
 and a collapse. The mean with its standard deviation is the faithful summary: it states both
 the typical outcome and how much we can trust it.
 
-\paragraph{If we hand the agent the legal moves, is it really learning?} Yes, it is learning
+\paragraph{Why masking still counts as learning.} It is learning
 the part that matters. Masking removes only the trivial sub-problem of which moves physically
 exist; the agent still has to learn \emph{when} to book, \emph{how far} ahead and how to
 pace a long visit so every window is met before closing. We deliberately spend its capacity
