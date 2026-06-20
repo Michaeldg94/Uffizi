@@ -318,22 +318,7 @@ penalty} proxying the distant cost.}
 decisive trick.}
 \end{frame}
 
-% --- 14. Multi-seed variance ------------------------------------------------
-\begin{frame}{What five seeds revealed (and why we ran them)}
-\body
-A single training run can be lucky or unlucky, so a single number can mislead. We retrained every cell
-under \emp{five} training seeds and report the mean and the spread across them.
-\vfill
-\begin{itemize}\setlength\itemsep{2.6em}
-\item \emp{The tourist is rock-stable}: essentially zero variance at every crowd level.
-\item \emp{The art lover degrades as the museum fills}: the gain falls from $+39\%$ to $+29\%$ to $+20\%$.
-\item \emp{The catch:} at \emp{maximum crowd} the art lover is \emp{bimodal}, four of the five seeds
-      reach $\sim$\good{+41\%} but one \bad{collapses} below baseline, so the cell averages \warn{+20\%}
-      with a wide error bar. We report the spread, not the lucky seed.
-\end{itemize}
-\end{frame}
-
-% --- 15. Density payoff (full page, after the interventions) ---------------
+% --- 14. Density payoff (full page, after the interventions) ---------------
 \begin{frame}{The crowd before and after the redesign}
 \begin{columns}[c]
 \begin{column}{0.7\textwidth}\centering
@@ -348,7 +333,7 @@ The masterpiece bands (\code{A9}, \code{A36}) cool from red toward orange and th
 \end{columns}
 \end{frame}
 
-% --- 16. Thank you ----------------------------------------------------------
+% --- 15. Thank you ----------------------------------------------------------
 {\setbeamertemplate{footline}{}\begin{frame}[c]
 \centering
 {\Huge Thank you.}\\[0.9em]

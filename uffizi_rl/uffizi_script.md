@@ -184,18 +184,7 @@ small signal now, tracking a far-off reward, made the long lesson learnable. Our
 
 ---
 
-## 16. What five seeds revealed
-
-One more habit: we never trust a single run. A single run can be lucky or unlucky, so one
-number can mislead. We retrained every cell under five seeds and report the mean with the
-spread. The tourist is rock-solid, near-zero variance everywhere. The art lover degrades as
-the museum fills, from plus thirty-nine to plus twenty-nine to plus twenty percent. And the
-catch: at maximum crowd it is bimodal. Four of five seeds reach plus forty-one, but one
-collapses below baseline. We report that spread, not the lucky seed.
-
----
-
-## 17. The crowd before and after the redesign
+## 16. The crowd before and after the redesign
 
 Now back to stream one and the big picture. This heatmap is the whole museum across the
 whole day. The top panel is the Uffizi as it is today; the bottom is the same museum with
@@ -206,7 +195,7 @@ welfare, with revenue held flat. Nobody turned away.
 
 ---
 
-## 18. Thank you
+## 17. Thank you
 
 That is our story: from a twelve-room toy, through four hard bugs, to a single optimal
 visitor and a redesigned museum that serves the same crowd better. Thank you. We are happy
@@ -250,5 +239,5 @@ These are not narrated in sequence. Each is a one-line answer to a likely questi
 ---
 
 *Suggested three-way split: one presenter takes the setup (slides 1 to 4), one takes the
-method and results (5 to 11), one takes the challenges and close (12 to 18). Whoever fields
+method and results (5 to 11), one takes the challenges and close (12 to 17). Whoever fields
 a question drives to the matching backup slide above.*
