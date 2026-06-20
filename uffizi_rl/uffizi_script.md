@@ -1,64 +1,75 @@
 # The Art of Queueing: spoken script
 
 One spoken beat per presented slide, roughly 85 words each (about a minute), written
-to be told, not read off. The eighteen main slides run the story; the appendix at the
+to be told, not read off. The seventeen main slides run the story; the appendix at the
 end is Q&A backup, so those carry short "if asked" pointers rather than full beats.
 
 ---
 
 ## 1. Title
 
-Good morning. We are Marco, Michael and Mircea. Our talk is called The Art of Queueing.
-It is about the Uffizi in Florence, one of the most crowded museums on earth. The
-question we ask is simple: can reinforcement learning help five thousand visitors a day
-enjoy it more? Over the next fifteen minutes we take you from a tiny toy problem all the
-way to a redesigned museum. Let us begin with the building itself.
+Good morning, everyone. We're Marco, Michael and Mircea, and our talk is called The Art
+of Queueing. It's about the Uffizi, in Florence — a museum many people dream of visiting,
+and also one of the most crowded in the world. About five thousand people go through it
+every single day. So we asked ourselves a simple question: can reinforcement learning help
+these people enjoy it more? In the next fifteen minutes, we'll take you from a small toy
+problem all the way to a redesigned museum. Let's start with the building itself.
 
 ---
 
 ## 2. The few rooms everyone queues for
 
-Here is the Uffizi: ninety-eight rooms spread over two floors. The strange thing is that
-almost all five thousand daily visitors come for the same handful of paintings, the
-Botticellis, the Leonardos, a Raphael, a Michelangelo, crammed into just three rooms. So
-those three run wildly over capacity while the other ninety-five stay calm. And the crowd
-is not uniform: roughly sixty percent are Instagram tourists chasing a selfie, thirty
-percent are normal visitors, ten percent are true art lovers. That mix matters later.
+This is the Uffizi: ninety-eight rooms, on two floors. Take a look at the map. Almost
+everything people come to see is upstairs, on the second floor — the two Botticellis, the
+two Leonardos, a Raphael, a Michelangelo — and all of it sits in just three rooms. The
+first floor, downstairs, is much quieter. That's where Caravaggio is, and people move
+around freely there. So the picture is very unbalanced: three rooms are completely full,
+while the other ninety-five stay almost empty. And the crowd is not one single type. About
+sixty percent are Instagram tourists, there for a selfie; thirty percent are normal
+visitors; ten percent are real art lovers. Please remember that mix — it matters later.
 
 ---
 
 ## 3. The problem and the goal
 
-So what is wrong with this picture? Everything funnels into three rooms, which means long
-queues and a crush at the masterpieces, while the rest of the museum sits half empty.
-Nobody coordinates: every visitor who pushes into a packed Botticelli makes it a little
-worse for the next. Economists call that a congestion externality. Our question is whether
-reinforcement learning can do better. We attack it from two sides. The museum side:
-redesign the incentives so the crowd spreads out. The visitor side: find the smartest way
-through.
+So what is the problem here? Everything goes into the same three rooms. That means long
+queues, and the masterpiece rooms get completely packed, while all the other rooms stay
+almost empty. And nobody is coordinating. Every person who pushes into a full Botticelli
+room makes it a little worse for the next one. Economists have a name for this: a
+congestion externality. Our question was whether reinforcement learning could do better.
+We looked at it from two sides — the museum, and the visitor. And that split is really the
+whole shape of our project.
 
 ---
 
 ## 4. Two streams, one project
 
-We split the work into two streams that stay separate until the end. Stream one is a crowd
-simulator: the full sixty-thirty-ten population moving through the museum for one day. We
-compare the museum as it is against a redesign, adopting it only if welfare rises and
-revenue holds. It passes: plus thirty-one percent welfare, revenue preserved. Stream two,
-our real focus, sits on top. We take that museum as fixed and ask what an optimal visitor
-would do: when to book, which masterpieces, how to pace the day.
+So those two sides become two streams of work. The easiest way to tell them apart is one
+question: who are we optimising for? Stream one is the museum's problem — we change the
+museum for everyone. We send the whole sixty-thirty-ten crowd through a full day, and
+compare the museum as it is today with a redesign that makes the crowd spread out: booked
+masterpiece slots, longer opening hours, a small extra charge at busy times. We keep the
+redesign only if welfare goes up and revenue stays safe. And it does: plus thirty-one
+percent welfare, revenue preserved. Stream two is the one we really care about — the
+visitor's problem. Here we keep the museum fixed and look for the single best visitor
+inside it: when to book, which masterpieces to see, how to plan the day.
 
 ---
 
 ## 5. Foundations: a tabular proof of concept
 
-Before touching the real museum, we proved the idea on a twelve-room toy small enough to
-solve exactly. Crowds wave up and down without warning. Tabular Q-learning discovers
-something we call temporal arbitrage: do not fight the peak, slip in during the lull just
-around it. The bars on the right are telling. Learning beats every hand-written rule; the
-rules even go negative when they mistime the crowd. One more check: Q-learning and
-Double-Q tie almost exactly, because a deterministic toy has no overestimation bias to
-remove. Theory confirmed.
+Before we tried this on the real museum, we first tested the idea on a small twelve-room
+toy — simple enough to solve exactly. In the toy, the crowd goes up and down with no
+warning. Q-learning finds a smart move we call temporal arbitrage: don't fight the peak, go
+in during the quiet time just around it. Now look at the bars. The two on the left are the
+learners, both close to eighty-three. Every hand-written rule is far below, and four are
+even negative. Here's the surprising part: even random — just choosing by chance, at plus
+thirty-five — beats all four "clever" rules. The worst rule always goes straight to the
+most valuable room, no matter the time, so it reaches Botticelli right at the peak:
+completely wrong about timing. Random at least catches a few quiet moments. So the lesson
+is simple: when you visit matters more than whether you visit — and only learning finds
+this. Last check: Q-learning and Double-Q come out equal, because in a fully predictable
+toy there's no overestimation for Double-Q to fix. Exactly what the theory says.
 
 ---
 
