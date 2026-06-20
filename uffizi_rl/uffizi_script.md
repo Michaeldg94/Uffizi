@@ -184,19 +184,7 @@ welfare, with revenue held flat. Nobody turned away.
 
 ---
 
-## 17. What worked, what did not, what is debatable
-
-Let me close with the scoreboard. What worked best: action masking, the biggest lever;
-reframing the problem from navigation to booking; an immediate proxy for a delayed reward;
-exposing appreciation progress; and a dense way out of the building. What worked worst was
-as instructive: the all-or-nothing exit wipe, the free decline trap, the
-harsh crowd penalty, the boredom penalty, plus greedy evaluation of a stochastic policy.
-And what is genuinely debatable: our calibration choices, plus the fact that we found one
-best response, not a full crowd equilibrium.
-
----
-
-## 18. Thank you
+## 17. Thank you
 
 That is our story: from a twelve-room toy, through four hard bugs, to a single optimal
 visitor and a redesigned museum that serves the same crowd better. Thank you. We are happy
@@ -240,5 +228,5 @@ These are not narrated in sequence. Each is a one-line answer to a likely questi
 ---
 
 *Suggested three-way split: one presenter takes the setup (slides 1 to 4), one takes the
-method and results (5 to 10), one takes the challenges and close (11 to 18). Whoever fields
+method and results (5 to 10), one takes the challenges and close (11 to 17). Whoever fields
 a question drives to the matching backup slide above.*
