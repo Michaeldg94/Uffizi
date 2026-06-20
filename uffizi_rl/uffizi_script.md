@@ -1,7 +1,7 @@
 # The Art of Queueing: spoken script
 
 One spoken beat per presented slide, roughly 85 words each (about a minute), written
-to be told, not read off. The seventeen main slides run the story; the appendix at the
+to be told, not read off. The eighteen main slides run the story; the appendix at the
 end is Q&A backup, so those carry short "if asked" pointers rather than full beats.
 
 ---
@@ -73,29 +73,40 @@ wasted on moves that do not exist.
 
 ---
 
-## 7. The reframe: when to book, not where to walk
+## 7. As-is versus intervened: why it becomes a booking problem
 
-Here is the most important decision we made. A visitor has a map and a guidebook, so
-walking the museum is a shortest path, already solved. The hard decision is the booking:
-when to reserve each masterpiece. Booking is hard in three ways walking never
-is. It is uncertain, you cannot see how fast the good slots fill. It is irreversible, book
-late and the masterpiece is gone. And it is delayed, you act today but the payoff only
-arrives at check-in. So we reframed the problem around booking.
-
----
-
-## 8. Result: book early when busier and it pays
-
-And here is the payoff. Both kinds of visitor beat their matched no-booking baseline at
-every crowd level: the art lover gains twenty to thirty-nine percent, the tourist a steady
-thirty-six to thirty-eight. All three masterpieces are secured every time. But look at the
-curve on the right. The lead time the agent chooses rises with the crowd: the busier the
-museum, the earlier it books. We never coded that rule. It emerged on its own from the
-reward, because booking late into a packed museum simply misses the rooms.
+We leave the toy and put the agent on the full museum, running the same algorithms in two
+worlds. World one is the museum as-is: no reservations, you walk in, taking masterpieces as
+you find them, so with a map the visit is a solved shortest path. World two is the
+intervened museum, our eleven Pigovian measures. The headline one, RAMA, ends walk-in
+access: every masterpiece needs a slot booked days ahead. That rule flips the decision from
+where to walk to when to book. Booking is hard: uncertain, irreversible, delayed.
 
 ---
 
-## 9. What a visit looks like, on the real floor plan
+## 8. The eleven interventions: pricing the externality
+
+So what does intervened mean? RAMA is one of eleven Pigovian measures in the redesign.
+Remember the congestion externality from earlier: the fix is to make each visitor feel the
+cost they impose and reward those who spread out. Some shift demand in time, like extended
+hours and quiet-hour discounts. Some shift it in space, like reservations and enriching the
+secondary rooms. Some use price, like peak pricing and a group surcharge. A director's gate
+decides adoption: only if welfare rises and revenue holds. It does, plus thirty-one percent.
+
+---
+
+## 9. Result: book early when busier and it pays
+
+And here is the payoff. Under RAMA, both profiles beat their matched as-is, no-booking
+baseline at every crowd level: the art lover gains twenty to thirty-nine percent, the tourist
+a steady thirty-six to thirty-eight. All three masterpieces are secured every time. But look
+at the curve on the right. The lead time the agent chooses rises with the crowd: the busier
+the museum, the earlier it books. We never coded that rule. It emerged from the reward,
+because booking late into a packed museum simply misses the rooms.
+
+---
+
+## 10. What a visit looks like, on the real floor plan
 
 It helps to see a visit. This is the art lover's learned day, eight runs drawn on the real
 Uffizi floor plan, one panel per crowd level. Notice it is a single sensible route. The
@@ -106,7 +117,7 @@ no teleports, just a real walk through a real building.
 
 ---
 
-## 10. Which algorithm wins and why masking matters
+## 11. Which algorithm wins and why masking matters
 
 So which algorithm actually wins? MaskablePPO is best or tied in every single cell, stable
 across seeds. Masking earns its keep exactly where the problem is hardest. At the packed
@@ -117,7 +128,7 @@ crowd values overestimates, the very bias our deterministic toy did not have.
 
 ---
 
-## 11. Challenge 1: an unlearnable reward
+## 12. Challenge 1: an unlearnable reward
 
 Those results hid pain; the struggle was the project. Here are the four hardest bugs.
 First, an unlearnable reward. Our earliest agent never left; it squatted in one room
@@ -129,7 +140,7 @@ often unlearnable.
 
 ---
 
-## 12. Challenge 2: it could not see what it was deciding
+## 13. Challenge 2: it could not see what it was deciding
 
 Second bug: the agent could not see what it was deciding. The rule we wanted, stay until
 satisfied then move on, never stabilised; dwell times wobbled at random. The reason was
@@ -140,7 +151,7 @@ to the state, so seen enough becomes something the policy can read.
 
 ---
 
-## 13. Challenge 3: reward shaping that backfired
+## 14. Challenge 3: reward shaping that backfired
 
 Third, reward shaping that backfired. Our well-meant penalties had side effects: a boredom
 penalty made the agent loop in circles; a harsh crowd penalty produced a fake art lover who
@@ -151,7 +162,7 @@ satiation alone to stop lingering. Always ask: what is the cheapest way to game 
 
 ---
 
-## 14. Challenge 4: the do-nothing trap and the book-early trick
+## 15. Challenge 4: the do-nothing trap and the book-early trick
 
 Fourth, our favourite. Give it a free decline button and both profiles declined all three
 masterpieces; book-early stayed only half learned. The trap is that declining is safe now,
@@ -162,7 +173,7 @@ small signal now, tracking a far-off reward, made the long lesson learnable. Our
 
 ---
 
-## 15. What five seeds revealed
+## 16. What five seeds revealed
 
 One more habit: we never trust a single run. A single run can be lucky or unlucky, so one
 number can mislead. We retrained every cell under five seeds and report the mean with the
@@ -173,7 +184,7 @@ collapses below baseline. We report that spread, not the lucky seed.
 
 ---
 
-## 16. The crowd before and after the redesign
+## 17. The crowd before and after the redesign
 
 Now back to stream one and the big picture. This heatmap is the whole museum across the
 whole day. The top panel is the Uffizi as it is today; the bottom is the same museum with
@@ -184,7 +195,7 @@ welfare, with revenue held flat. Nobody turned away.
 
 ---
 
-## 17. Thank you
+## 18. Thank you
 
 That is our story: from a twelve-room toy, through four hard bugs, to a single optimal
 visitor and a redesigned museum that serves the same crowd better. Thank you. We are happy
@@ -228,5 +239,5 @@ These are not narrated in sequence. Each is a one-line answer to a likely questi
 ---
 
 *Suggested three-way split: one presenter takes the setup (slides 1 to 4), one takes the
-method and results (5 to 10), one takes the challenges and close (11 to 17). Whoever fields
+method and results (5 to 11), one takes the challenges and close (12 to 18). Whoever fields
 a question drives to the matching backup slide above.*

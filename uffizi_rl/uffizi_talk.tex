@@ -179,25 +179,45 @@ that do not exist; this state-dependent action set is our single biggest design 
 \vfill
 \end{frame}
 
-% --- 6. The reframe ---------------------------------------------------------
-\begin{frame}{The reframe: when to book, not where to walk}
+% --- 6. From toy to full museum: two worlds and the reframe -----------------
+\begin{frame}{As-is versus intervened: why it becomes a booking problem}
 \body
-A visitor has a map and guide, so the route is a shortest path. The real decision is the
-\emp{booking}, hard for three reasons walking never has:
+We now leave the toy and put the agent on the \emp{full museum}, running the same algorithms in two
+worlds.
 \vfill
 \begin{itemize}\setlength\itemsep{0.7em}
-\item \emp{Uncertain:} you cannot see how fast the good slots fill.
-\item \emp{Irreversible:} book late and the masterpiece is gone.
-\item \emp{Delayed:} you act today; the payoff lands at check-in ($\gamma = 0.999$).
+\item \emp{As-is (the baseline):} no reservations. You walk in and take the masterpieces as you find
+them, so with a map the route is a solved shortest path.
+\item \emp{Intervened:} our \emp{eleven Pigovian measures}. The headline one, \emp{RAMA}, ends walk-in
+access: every masterpiece needs a slot \emp{booked days ahead} (lead time $1$, $7$, $21$ or $35$).
 \end{itemize}
 \vfill
-\begin{columns}[T]
-\begin{column}{0.5\textwidth}\emp{Baseline (as-is):} no booking, take masterpieces as found.\end{column}
-\begin{column}{0.5\textwidth}\emp{RAMA:} booked slots, pick a lead time of $1$, $7$, $21$ or $35$ days.\end{column}
-\end{columns}
+That single rule flips the visitor's decision from \emp{where to walk} into \emp{when to book}, hard
+for three reasons walking never had: \emp{uncertain} (how fast the good slots fill is hidden),
+\emp{irreversible} (book late, the masterpiece is gone), \emp{delayed} (you act today; the payoff lands
+at check-in, $\gamma=0.999$).
 \end{frame}
 
-% --- 7. Headline result -----------------------------------------------------
+% --- 7. What the interventions are ------------------------------------------
+\begin{frame}{The eleven interventions: pricing the externality}
+\body
+RAMA is one of \emp{eleven} Pigovian measures behind the intervened museum. Slide three called the
+crush a congestion externality; the remedy is to make each visitor feel the cost they impose and
+reward those who spread out. For example:
+\vfill
+\begin{itemize}\setlength\itemsep{0.55em}
+\item \emp{Time:} extended opening hours ($7$ to $19$), quiet-hour discounts, timed entry.
+\item \emp{Access:} RAMA reservations, secondary-attractor enrichment to pull crowds off the
+masterpieces.
+\item \emp{Price:} dynamic peak pricing, a flat surcharge on large tour groups.
+\end{itemize}
+\vfill
+A \emp{director's gate} decides adoption: keep the bundle only if welfare rises and revenue holds. It
+does, \good{+31\%} welfare with revenue preserved. Stream two then finds the optimal visitor inside
+this redesigned world.
+\end{frame}
+
+% --- 8. Headline result -----------------------------------------------------
 \begin{frame}{Result: book early when busier and it pays}
 \body
 \begin{columns}[c]
@@ -209,8 +229,9 @@ A visitor has a map and guide, so the route is a shortest path. The real decisio
 \end{column}
 \end{columns}
 \vfill
-Both profiles beat the matched no-booking baseline at every crowd level: \good{+20\% to +39\%} for the
-art lover, \good{+36\% to +38\%} for the tourist, all three masterpieces secured. The learned lead time
+Under RAMA, both profiles beat the matched \emp{as-is} (no-booking) baseline at every crowd level:
+\good{+20\% to +39\%} for the art lover, \good{+36\% to +38\%} for the tourist, all three masterpieces
+secured. The learned lead time
 \emp{rises with the crowd} (right): book-early-when-busier
 is not coded in, it emerges from the reward, because booking late at a packed museum misses the rooms.
 \end{frame}
