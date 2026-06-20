@@ -11,11 +11,14 @@
 \setbeamertemplate{navigation symbols}{}
 \setbeamertemplate{footline}{%
   \leavevmode\hbox{%
-    \begin{beamercolorbox}[wd=.5\paperwidth,ht=2.5ex,dp=1ex,center]{author in head/foot}%
+    \begin{beamercolorbox}[wd=.3333\paperwidth,ht=2.5ex,dp=1ex,center]{author in head/foot}%
       \usebeamerfont{author in head/foot}\insertshortauthor
     \end{beamercolorbox}%
-    \begin{beamercolorbox}[wd=.5\paperwidth,ht=2.5ex,dp=1ex,right]{date in head/foot}%
-      \usebeamerfont{date in head/foot}\insertframenumber{} / \inserttotalframenumber\hspace*{2ex}
+    \begin{beamercolorbox}[wd=.3333\paperwidth,ht=2.5ex,dp=1ex,center]{title in head/foot}%
+      \usebeamerfont{title in head/foot}RL @ Uffizi
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.3334\paperwidth,ht=2.5ex,dp=1ex,center]{date in head/foot}%
+      \usebeamerfont{date in head/foot}\insertframenumber{} / \inserttotalframenumber
     \end{beamercolorbox}}%
   \vskip0pt%
 }
@@ -205,7 +208,7 @@ closing. Every step is a one-hop move to a neighbouring room, so there are no te
 \begin{frame}{Which algorithm wins and why masking matters}
 \bodydense
 \centering
-\includegraphics[width=0.72\linewidth]{\fig{15_algorithm_comparison.png}}
+\includegraphics[width=0.70\linewidth]{\fig{15_algorithm_comparison.png}}
 \vfill
 \raggedright
 \begin{itemize}\setlength\itemsep{0.35em}
@@ -345,11 +348,14 @@ as-is museum hides the real entry choice (book or queue).
 \renewcommand{\body}{\small}  % dense backup slides stay compact
 \setbeamertemplate{footline}{%
   \leavevmode\hbox{%
-    \begin{beamercolorbox}[wd=.5\paperwidth,ht=2.5ex,dp=1ex,center]{author in head/foot}%
+    \begin{beamercolorbox}[wd=.3333\paperwidth,ht=2.5ex,dp=1ex,center]{author in head/foot}%
       \usebeamerfont{author in head/foot}\insertshortauthor
     \end{beamercolorbox}%
-    \begin{beamercolorbox}[wd=.5\paperwidth,ht=2.5ex,dp=1ex,right]{date in head/foot}%
-      \usebeamerfont{date in head/foot}Appendix~\insertframenumber{} / \inserttotalframenumber\hspace*{2ex}
+    \begin{beamercolorbox}[wd=.3333\paperwidth,ht=2.5ex,dp=1ex,center]{title in head/foot}%
+      \usebeamerfont{title in head/foot}RL @ Uffizi
+    \end{beamercolorbox}%
+    \begin{beamercolorbox}[wd=.3334\paperwidth,ht=2.5ex,dp=1ex,center]{date in head/foot}%
+      \usebeamerfont{date in head/foot}Appendix~\insertframenumber{} / \inserttotalframenumber
     \end{beamercolorbox}}\vskip0pt}
 
 % --- A0. Divider ------------------------------------------------------------
@@ -566,6 +572,18 @@ spread each profile's masterpiece visits across the day.}
 {\normalsize The redesign is adopted only if welfare rises and revenue does not fall (the director's
 gate). The chosen portfolio of eleven Pigovian measures lifts welfare \good{$+31\%$} with revenue
 preserved.}
+\vfill
+\end{frame}
+
+% --- A12b. Ranking the candidate interventions ------------------------------
+\begin{frame}{Backup: ranking the candidate interventions by welfare gain}
+\vfill
+\centering
+\includegraphics[width=0.54\linewidth]{\fig{18_top_interventions.png}}\\[8pt]
+{\normalsize Each candidate measure scored on its own against the as-is baseline. Extended opening
+hours and secondary-attractor enrichment are the strongest single levers; the full combined bundle
+leads. The tour-group cap and the expanded annual pass lower welfare on their own; the adopted
+portfolio keeps the welfare-positive measures.}
 \vfill
 \end{frame}
 

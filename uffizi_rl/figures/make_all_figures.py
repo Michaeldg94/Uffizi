@@ -282,11 +282,12 @@ def g_algo():
         ax.set_xticks(x); ax.set_xticklabels([CROWD_LABEL[c] for c in CROWDS])
         ax.set_title(PROFILE_LABEL[p]); ax.set_ylabel("points (deterministic eval)")
         ax.grid(axis="y", alpha=0.25)
-        if j == 1:
-            ax.legend(fontsize=11, ncol=1, loc="upper right", framealpha=0.9)
+    handles, labels = axes[0][0].get_legend_handles_labels()
+    fig.legend(handles, labels, fontsize=11, ncol=len(ALGO_ORDER), loc="lower center",
+               bbox_to_anchor=(0.5, 0.005), framealpha=0.9)
     fig.suptitle("Algorithm comparison: value-based (DQN) vs policy-gradient (PPO / MaskablePPO), "
                  "baseline vs intervened (5 seeds, mean $\\pm$ std)", y=1.02)
-    fig.tight_layout()
+    fig.tight_layout(rect=[0, 0.07, 1, 1])
     save(fig, "algorithm_comparison")
 
 
