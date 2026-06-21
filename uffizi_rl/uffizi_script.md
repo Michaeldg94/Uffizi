@@ -29,34 +29,35 @@ the same few rooms. And that's really where our whole problem begins.
 
 ## 3. The problem: where RL comes in
 
-And when we measured it, the problem turned out to be even sharper than we expected. This
-chart ranks the busiest rooms. The three at the top, the ones with the Botticellis, the
-Leonardos and the Raphael, get so full they hit double what they're meant to hold. That's the
-red. Meanwhile everything in grey has plenty of room to spare. So the museum isn't too small.
-The problem is that everyone is fighting for the same three rooms. And that's the question we
-set out to answer: can RL actually help?
+Let me walk through this chart, it's the heart of the problem. Each bar is a room, and its
+length shows how packed it gets at the busiest moment, compared to what it's built to hold. The
+dashed line is the limit: a room exactly full. Anything past it is over capacity. Look, the top
+three, Botticelli, Leonardo and Raphael, almost hit double. Those are the red ones. Every other
+room sits well to the left, with space to spare. So the museum isn't too small. Everyone is just
+fighting for the same three rooms. And that's what we wanted RL to fix.
 
 ---
 
 ## 4. The plan
 
-Our plan is basically a loop. First we build a digital copy of the museum, where every room
-has a size, exits, and a value, because a room full of Botticellis matters more than a hallway.
-Then we add a realistic crowd and check it matches the real Uffizi. Once that works, we drop a
-learning agent inside and let it find the smartest visit. Then we start changing things, the
-prices, the opening hours, keeping only what doesn't cost the museum money. And we re-run it all
-to see what got better.
+Our plan is a loop. First, we build a digital copy of the museum, where every room has a size,
+exits, and a value. Then we add a realistic crowd, and we track two things: how much money the
+museum makes, and how happy the visitors are. Once it matches the real Uffizi, we drop a
+learning agent in to find the smartest visit. Then we change things like the prices and the
+hours, keeping only what makes visitors happier without losing money. And we re-run it to see
+what improved.
 
 ---
 
 ## 5. A toy first
 
-Before the real museum, we started tiny. Just twelve rooms, simple enough to solve perfectly
-by hand. In it, rooms fill up and empty out through the day. And the agent learns the trick on
-its own: go to the busy rooms when they're quiet, and wait when they're full. Look at the bars.
-Learning crushes every rule we wrote ourselves, and some of those even do worse than nothing.
-And both methods tie here, which makes sense: the fancier one fixes a problem this little toy
-doesn't even have.
+Before the real museum, we started tiny. Just twelve rooms, simple enough to solve by hand. In
+it, rooms fill up and empty out through the day, and the agent learns the trick by itself: go to
+the busy rooms when they're quiet. In this chart, each bar is the score for a whole visit, so
+higher is better. The two on the left are our learning methods, Q-learning and Double-Q. The
+other five are simple rules we wrote by hand, like just following the standard tourist route.
+Learning beats all five, and some of them even do worse than nothing. The two learners tie,
+exactly like the theory predicts.
 
 ---
 
