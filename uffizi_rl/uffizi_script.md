@@ -63,65 +63,98 @@ exactly like the theory predicts.
 
 ## 6. The toy does not scale
 
-The real museum breaks that table: ninety-eight rooms, around a hundred moves at each step,
-hundreds of numbers in the state. A lookup table that big could never fill, so we move to a
-neural net, MaskablePPO, with PPO and DQN as controls. The key trick is masking. From any room
-only a few moves are physically legal, so we set the illegal ones to minus infinity before the
-softmax. The agent never wastes time learning which moves don't exist; they're simply off the
-table.
+Thank you very much Michael for presenting the toy model. 
+However, unfortunatley in the real world this model breaks up and does not scale. The real museum:
++ has ninety-eight rooms, 
++ we can take around a hundred moves at each step,
++ and there are hundreds of state numbers.
+
+Creating a Q-table like in teh toy would never fill, so we move to a neural network. That is why we implemented a MaskablePPO and we keep in mind the PPO and DQN as controls. 
+
+The key is in masking actions. That is, given a room, we make it illegal for the agent to move to a room that is in the other part of the museum. This cannot be done unless teleportation is invented. 
+So the agent can move only to rooms that are adjacent to the given room, and we set the illegal moves to minus infinity before the softmax. 
+The agent does not lose time to learn those illegal moves.
 
 ---
 
 ## 7. The museum as it is: the baseline
 
-First, the museum as it is today. We calibrate it to the real hours, prices and surcharges,
-then drop our agents on it, where the visitor just walks, no booking. This is the ceiling with
-no change: the art lover scores around five thousand, dropping toward four thousand as the
-rooms fill; the tourist sits near twenty-seven hundred. That's today's Uffizi; every later
-number is measured against it.
+Before we see how our proposed interventions work, let's look first at the status quo of the museum, that is how the museum presents itself without any intervention (real hours, prices, surcharges). 
+
+We drop our RL agents inside the museum without any booking from their side. and it gives us the "ceiling without any intervention", that is the best possible visit under today's rule.
+
+We can observe that the art lover gets around 5000 satistaction points (or rewards) and it slips to around 4000 points when the museum gets busier.
+
+The normal turist stays around 2700 points. 
+Later we will see how these numbers evolve when we implement the interventions.
+
 
 ---
 
 ## 8. The interventions and the museum-wide payoff
 
-Now we redesign. The intervened museum bundles eleven measures, each one charging for the
-crowding a visitor causes: longer hours and quiet-hour discounts on time, reservations and
-richer side rooms on access, peak pricing and a group surcharge on price. The heatmap shows
-the effect: top is today, bottom is all eleven, same scale. The masterpiece bands cool from
-red toward orange; the day spreads over more hours. Welfare is up thirty-one percent with
-revenue held.
+We introduce 11 Pigovian measures, each measure charging for the crowdedness effect one visitor causes. For example:
++ longer hours, quiet rooms discounts
++ reservations in advance (RAMA)
++ price peaking when it gets more crwoded
++ surcharge for large groups
+
+The heatmaps of the crowd density on the left show the effect of these 11 interventions:
++ on top it is displayed the baseline, without any intervention
++ below we see how the heatmap of the crowd density behaves when all 11 interventions are done.
+
+We can immediately observe that the "heat" cools off for the more crowded rooms (from dark red to slighter orange), and the visits spread over more hours.
 
 ---
 
 ## 9. After the redesign: a booking problem
 
-The headline intervention is RAMA: masterpieces now need a booked slot, so you can't just walk
-in. That flips the visitor's real decision from where to walk to when to book, one, seven,
-twenty-one or thirty-five days ahead. It's hard because it's uncertain, irreversible and
-delayed. And it pays: the art lover's ceiling climbs from five thousand to seven thousand, the
-tourist's from twenty-seven hundred to thirty-seven hundred, all masterpieces secured. The
-agent even learns to book earlier when the museum is busier, which we never coded.
+Our headline intervention is RAMA. But what it RAMA?  It stands for Restricted Anchored Masterpiese Access, meaning that the masterpieces are behind closed doors and access is done only through booked time slots.
+
+This makes the visitors not to wonder around the museum, but it forces it to be present at the time allocated booked slot in the rooms where the masterpieces are. 
+
+So problem flips now, the visitor has to decide when to book the masterpiece visit in adavance with 1, 7, 21 or 35 days. 
+
+This problem is hard, because it is:
++ uncertain: the visitor does not know when the best booked slots will be sold
++ irreversible: once done, the visitor cannot reverse its decision
++ and delaying too much the booking can make the visitor lose its spot.
+
+This pays off. As we can see in the graph above the statisfaction that the art lover will gain is higher no matter the crowd state of the museum. The ceiling increases in a range of 20%-39%.
+
+The same story fo rthe normal tourist, its satisfaction increases, the ceiling rises in the range of 36% to 38%.
+
+As an extra bonus from our model, we get that the agent learns when to book in advance. That is, depending on how crowded the museum is, both the art lover and normal toursit (but especially the art lover) book in advance. This is not hard coded by us, but it is the reward system.
 
 ---
 
 ## 10. Two visits: the art lover roams, the tourist beelines
 
-Here's how the two visitors actually move, drawn on the floor plan. The art lover, on top,
-works the whole museum: its trace covers the second floor end to end and fans across the first
-floor too. The normal tourist, on the bottom, does not. After the masterpieces it skips the B
-block and rushes through C and D straight to Caravaggio, then leaves. Same museum, two
-completely different visits.
+In the next slide we see how these two agents (art lover and normal tourist) actually move inside the museum.
 
+The green point represents the entrance in the museum, the stars represent where the masterpieces are.
+
+The art lover on top, explores the museum more in depth than the normal tourist. For example:
++ they both enter on the second floor
++ they both see the masterpieces on this floor, explore section A
++ then they go down
++ here the art lover explores sections B and D, while the normal tourist ignores section B and only passes through section D before seeing the Caravagio masterpieces, and then leave.
+
+Same museum, two completely different stories.
 ---
 
 ## 11. Which algorithm wins and why masking matters
 
-Which algorithm got us here? The pale bars are the two no-booking baselines, the coloured ones
-the three booking agents. MaskablePPO, in dark blue, is best or tied everywhere and stable
-across seeds; it's the winner. Unmasked PPO, in orange, collapses at the packed tourist, below
-the baseline, because it wastes effort on illegal moves. Masking only matters at the hardest
-cells, but there it decides the result. DQN, in green, is fragile and noisy: it overestimates
-by taking a max over noisy values.
+Next we compare the results of the algorithms we used. The pale bars are the PPO and DQN without any interventions (that is in our baseline).
+
+The coloured ones are the PPO, Masked PPO and DQN after the interventions. 
+
+What is striking is that the PPO colapses when the museum is crowded, because the agent wastes effort to learn also the illegal moves.
+
+Maskable PPO (in dark blue) is the best or tied when compared to other algorithms no matter how crowded the museum is.
+
+DQN is very fragile, because it uses a NNet to approximate the Q-function and in a highly complex problem as it is ours where there is much noise some actions may look better than they really are, because of random estimation error, so the model overestimates noisy values.
+
 
 ---
 
