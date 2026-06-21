@@ -8,52 +8,55 @@ at the end is Q&A backup, so those carry short "if asked" pointers rather than f
 
 ## 1. Title
 
-Good morning. We're Marco, Michael and Mircea. Our talk is The Art of Queueing. It's about
-the Uffizi in Florence, one of the most crowded museums anywhere; the question is whether
-reinforcement learning can help. Over the next fifteen minutes we go from a tiny toy problem
-to a redesigned museum and the optimal visitor inside it. Let's start with the building.
+Hi everyone. We're Marco, Michael and Mircea, and our project is called The Art of
+Queueing. It's about the Uffizi, the big art museum in Florence. It gets really crowded, and
+we wanted to find out: can reinforcement learning actually help with that? So over the next
+fifteen minutes, we'll start small, with a simple toy problem, and build all the way up to a
+full museum, and a visitor who knows exactly how to move through it. But first, let me show
+you the place.
 
 ---
 
 ## 2. The Uffizi Gallery
 
-This is the Uffizi: about five thousand visitors a day through ninety-eight rooms on two
-floors. These are the paintings nearly all of them come for, the two Botticellis, the
-Leonardos, a Raphael, a Michelangelo, all upstairs on the second floor. Downstairs is
-quieter, with Caravaggio. Keep that layout in mind, because the whole problem comes from
-where everyone wants to be.
+The Uffizi is one of those places that's on everyone's list. And you can see why. These are
+some of the most famous paintings in the world. But here's the catch. Almost all of them hang
+on the same floor, upstairs. Downstairs, where Caravaggio is, it's actually pretty calm. So you
+have thousands of people arriving every single day, and nearly all of them are trying to reach
+the same few rooms. And that's really where our whole problem begins.
 
 ---
 
 ## 3. The problem: where RL comes in
 
-Here's the problem; the figure makes it brutal. At the daily peak, three rooms, the
-Botticelli, Leonardo and Raphael rooms, run at roughly twice their capacity. The red bars are
-past the line; everything else sits well below. So a few rooms are jammed while most of the
-museum is nearly empty. Our question is whether reinforcement learning can help us understand
-this and simulate a calmer, better-run Uffizi.
+And when we measured it, the problem turned out to be even sharper than we expected. This
+chart ranks the busiest rooms. The three at the top, the ones with the Botticellis, the
+Leonardos and the Raphael, get so full they hit double what they're meant to hold. That's the
+red. Meanwhile everything in grey has plenty of room to spare. So the museum isn't too small.
+The problem is that everyone is fighting for the same three rooms. And that's the question we
+set out to answer: can RL actually help?
 
 ---
 
 ## 4. The plan
 
-The plan has five steps. One: rebuild the Uffizi as a virtual model, every room with its size,
-doorways and a value, because rooms differ: a Botticelli counts for more than a stairwell.
-Two: generate the crowd from real numbers, about sixty percent phone-first tourists, thirty
-percent ordinary, ten percent art lovers; check it matches the real museum, then read off
-revenue and welfare. Three: drop an RL agent on the museum as it is. Four: intervene, keeping
-only changes that hold revenue while lifting welfare. Five: re-run the agents and see who
-gains.
+Our plan is basically a loop. First we build a digital copy of the museum, where every room
+has a size, exits, and a value, because a room full of Botticellis matters more than a hallway.
+Then we add a realistic crowd and check it matches the real Uffizi. Once that works, we drop a
+learning agent inside and let it find the smartest visit. Then we start changing things, the
+prices, the opening hours, keeping only what doesn't cost the museum money. And we re-run it all
+to see what got better.
 
 ---
 
 ## 5. A toy first
 
-Before the real museum, we test on a twelve-room toy small enough to solve exactly. The
-crowds rise and fall with no warning; Q-learning learns to time them: go into a room in the
-lull, not at the peak. The bars show it beats every hand-written rule, some of which actually
-score negative. Q-learning and Double-Q tie, because a deterministic toy has no overestimation
-bias to fix, which is what the theory says.
+Before the real museum, we started tiny. Just twelve rooms, simple enough to solve perfectly
+by hand. In it, rooms fill up and empty out through the day. And the agent learns the trick on
+its own: go to the busy rooms when they're quiet, and wait when they're full. Look at the bars.
+Learning crushes every rule we wrote ourselves, and some of those even do worse than nothing.
+And both methods tie here, which makes sense: the fancier one fixes a problem this little toy
+doesn't even have.
 
 ---
 
