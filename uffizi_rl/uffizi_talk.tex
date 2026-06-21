@@ -278,7 +278,7 @@ so we built one in.}
 \sdfl
 {The rule ``stay until satisfied, then move'' never stabilised; dwell times wobbled at random.}
 {The right action depended on value already taken from the room, \emp{not in the state}: a hidden
-variable, a POMDP not the MDP we assumed.}
+variable the agent could not see.}
 {Add a per-room \emp{appreciation-progress} value to the state, so ``seen enough?'' becomes something
 the policy can read.}
 {Whatever the best move depends on has to live in the state. We had left it out, so no policy could
@@ -291,8 +291,8 @@ settle.}
 \sdfl
 {Well-meant terms backfired: a ``boredom'' penalty caused \emp{looping}, a harsh crowd penalty made a
 \emp{fake art lover}.}
-{Every term is a new objective to game (reward hacking): looping beat exiting, a crowded Botticelli
-scored worse than skipping it.}
+{Each reward term we added gave the agent a new way to cheat: looping beat exiting, a crowded
+Botticelli scored worse than just skipping it.}
 {\emp{Minimal} shaping: a \emp{gentle} crowd discount so a crowded masterpiece still beats skipping,
 no boredom penalty, satiation alone stops lingering.}
 {The agent games every term the laziest way it can. We stopped adding shaping until we had checked

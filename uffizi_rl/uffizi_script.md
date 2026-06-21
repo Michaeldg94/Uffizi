@@ -173,18 +173,18 @@ it's flat; gradient descent needs a slope to follow.
 
 Second, the agent couldn't see what it was deciding. The rule stay until satisfied then move
 never settled; dwell times wobbled at random. The reason: the right move depended on how much
-the visitor had already gotten out of the room, which wasn't in the state. We'd quietly turned
-it into a POMDP. The fix was a per-room appreciation-progress number, so seen enough is
-something the policy can read. Whatever the best move depends on has to be in the state.
+the visitor had already gotten out of the room, which wasn't in the state. The agent was blind
+to part of its own situation. The fix was a per-room appreciation-progress number, so seen
+enough is something the policy can read. Whatever the best move depends on has to be in the state.
 
 ---
 
 ## 14. Challenge 3: reward shaping that backfired
 
 Third, our reward shaping backfired. A boredom penalty made the agent loop in circles; a harsh
-crowd penalty produced a fake art lover that skipped the masterpieces. Every term you add is a
-new thing to game: looping beat exiting, a crowded Botticelli scored worse than just skipping
-it. So we went minimal, a gentle crowd discount so a packed masterpiece still beats skipping,
+crowd penalty produced a fake art lover that skipped the masterpieces. Each reward we added gave
+the agent a new way to cheat: looping beat exiting, a crowded Botticelli scored worse than just
+skipping it. So we went minimal, a gentle crowd discount so a packed masterpiece still beats skipping,
 no boredom penalty, satiation alone to stop lingering. The agent games every term the laziest
 way it can.
 
