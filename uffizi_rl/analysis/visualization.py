@@ -422,8 +422,8 @@ def plot_room_capacity_distribution(rooms_data: Sequence[Dict], out_path: str) -
 
 
 def plot_top_congested_rooms(room_density_pairs: Sequence, out_path: str,
-                              top_n: int = 15) -> bool:
-    """Horizontal bar chart of the most congested rooms (mean density).
+                              top_n: int = 15, label_overrides: dict = None) -> bool:
+    """Horizontal bar chart of the most congested rooms (peak density).
 
     The y-axis shows each room's human-readable name (looked up from
     config.ROOM_DATA) rather than the bare room ID, so the reader can
@@ -439,8 +439,11 @@ def plot_top_congested_rooms(room_density_pairs: Sequence, out_path: str,
     dens = [p[1] for p in top]
     # Resolve each room ID to its display name. Fall back to the ID if
     # the room is not in ROOM_DATA (defensive).
+    label_overrides = label_overrides or {}
     labels = []
     for rid in rooms:
+        if rid in label_overrides:
+            labels.append(label_overrides[rid]); continue
         name = config.ROOM_DATA.get(rid, {}).get("name")
         labels.append(f"{name} ({rid})" if name else rid)
     colors = ["#B14D4D" if d > 1.0 else "#D49B6C" if d > 0.5 else "#1F4E5F" for d in dens]
@@ -448,9 +451,9 @@ def plot_top_congested_rooms(room_density_pairs: Sequence, out_path: str,
     plt.barh(labels[::-1], dens[::-1], color=colors[::-1], edgecolor="white")
     plt.axvline(1.0, color="black", linestyle="--", alpha=0.6,
                 label="Capacity (density = 1.0)")
-    plt.xlabel("Mean Density (occupancy / capacity)")
+    plt.xlabel("Peak Density (occupancy / capacity)")
     plt.ylabel("Room")
-    plt.title(f"Top {top_n} Most Congested Rooms")
+    plt.title(f"Top {top_n} Most Congested Rooms (peak occupancy)")
     plt.legend(loc="lower right", frameon=False)
     _save_figure(out)
     return True

@@ -166,10 +166,12 @@ def g_world():
         caps = [config.ROOM_DATA[r]["capacity"] for r in config.ROOM_IDS]
         V.plot_visitors_inside_over_day(m, caps, pngpath("visitors_over_day"))
         V.plot_density_heatmap(m, pngpath("density_heatmap"), room_labels=config.ROOM_IDS)
-        means = m.mean(axis=0)
-        pairs = sorted(((config.ROOM_IDS[i], float(means[i])) for i in range(len(config.ROOM_IDS))),
+        peaks = m.max(axis=0)   # peak (busiest-minute) density per room, not the all-day mean
+        pairs = sorted(((config.ROOM_IDS[i], float(peaks[i])) for i in range(len(config.ROOM_IDS))
+                        if config.ROOM_IDS[i] != "PANORAMIC_TERRACE"),   # selfie terrace, not an art room
                        key=lambda kv: kv[1], reverse=True)
-        V.plot_top_congested_rooms(pairs, pngpath("top_congested"), top_n=15)
+        V.plot_top_congested_rooms(pairs, pngpath("top_congested"), top_n=15,
+                                   label_overrides={"A11": "Botticelli (A11/A12)"})
 
 
 # ===========================================================================
@@ -271,6 +273,11 @@ def g_algo():
                                   dr.get("ablations", []), pngpath("deep_rl_masking_ablation"))
     fig, axes = plt.subplots(1, 2, figsize=(12.5, 4.6), squeeze=False)
     x = np.arange(len(CROWDS)); w = 0.16
+    # one common y-axis for both profiles (and for the baseline chart below), so the
+    # art lover and the tourist sit on the same scale and the panels are comparable.
+    ymax = max(ALGO[p][c][a] + ALGO_STD[p][c][a]
+               for p in ("art", "tourist") for c in CROWDS for a in ALGO_ORDER)
+    ymax = (int(ymax // 1000) + 1) * 1000
     for j, p in enumerate(("art", "tourist")):
         ax = axes[0][j]
         for k, alg in enumerate(ALGO_ORDER):
@@ -282,6 +289,7 @@ def g_algo():
         ax.set_xticks(x); ax.set_xticklabels([CROWD_LABEL[c] for c in CROWDS])
         ax.set_title(PROFILE_LABEL[p]); ax.set_ylabel("points (deterministic eval)")
         ax.grid(axis="y", alpha=0.25)
+        ax.set_ylim(0, ymax)
     handles, labels = axes[0][0].get_legend_handles_labels()
     fig.legend(handles, labels, fontsize=11, ncol=len(ALGO_ORDER), loc="lower center",
                bbox_to_anchor=(0.5, 0.005), framealpha=0.9)
@@ -289,6 +297,35 @@ def g_algo():
                  "baseline vs intervened (5 seeds, mean $\\pm$ std)", y=1.02)
     fig.tight_layout(rect=[0, 0.07, 1, 1])
     save(fig, "algorithm_comparison")
+
+    # Baseline-only view for the "museum as it is" slide: just the two no-booking
+    # walks. Saved under a fixed name (not via the numbered save()) so it does not
+    # shift the sequential figure numbers downstream.
+    base_order = ["PPO-base", "DQN-base"]
+    figb, axesb = plt.subplots(1, 2, figsize=(12.5, 4.6), squeeze=False)
+    wb = 0.3
+    for j, p in enumerate(("art", "tourist")):
+        ax = axesb[0][j]
+        for k, alg in enumerate(base_order):
+            vals = [ALGO[p][c][alg] for c in CROWDS]
+            errs = [ALGO_STD[p][c][alg] for c in CROWDS]
+            ax.bar(x + (k - 0.5) * wb, vals, wb, yerr=errs, label=alg, color=ALGO_COLOR[alg],
+                   edgecolor="white", linewidth=0.4, capsize=2,
+                   error_kw={"elinewidth": 0.8, "ecolor": "#444"})
+        ax.set_xticks(x); ax.set_xticklabels([CROWD_LABEL[c] for c in CROWDS])
+        ax.set_title(PROFILE_LABEL[p]); ax.set_ylabel("points (deterministic eval)")
+        ax.grid(axis="y", alpha=0.25)
+        ax.set_ylim(0, ymax)
+    hb, lb = axesb[0][0].get_legend_handles_labels()
+    figb.legend(hb, lb, fontsize=11, ncol=2, loc="lower center",
+                bbox_to_anchor=(0.5, 0.005), framealpha=0.9)
+    figb.suptitle("The museum as it is: the optimal visitor with no intervention "
+                  "(5 seeds, mean $\\pm$ std)", y=1.02)
+    figb.tight_layout(rect=[0, 0.07, 1, 1])
+    for ext in ("png", "pdf"):
+        figb.savefig(FIG / f"algorithm_baseline.{ext}")
+    plt.close(figb)
+    print("  algorithm_baseline", flush=True)
 
 
 # ===========================================================================

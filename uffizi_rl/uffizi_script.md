@@ -1,205 +1,185 @@
 # The Art of Queueing: spoken script
 
 One spoken beat per presented slide, roughly 85 words each (about a minute), written
-to be told, not read off. The seventeen main slides run the story; the appendix at the
-end is Q&A backup, so those carry short "if asked" pointers rather than full beats.
+to be said out loud, not read off. The seventeen main slides run the story; the appendix
+at the end is Q&A backup, so those carry short "if asked" pointers rather than full beats.
 
 ---
 
 ## 1. Title
 
-Good morning, everyone. We're Marco, Michael and Mircea, and our talk is called The Art
-of Queueing. It's about the Uffizi, in Florence — a museum many people dream of visiting,
-and also one of the most crowded in the world. About five thousand people go through it
-every single day. So we asked ourselves a simple question: can reinforcement learning help
-these people enjoy it more? In the next fifteen minutes, we'll take you from a small toy
-problem all the way to a redesigned museum. Let's start with the building itself.
+Good morning. We're Marco, Michael and Mircea. Our talk is The Art of Queueing. It's about
+the Uffizi in Florence, one of the most crowded museums anywhere; the question is whether
+reinforcement learning can help. Over the next fifteen minutes we go from a tiny toy problem
+to a redesigned museum and the optimal visitor inside it. Let's start with the building.
 
 ---
 
-## 2. The few rooms everyone queues for
+## 2. The Uffizi Gallery
 
-This is the Uffizi: ninety-eight rooms, on two floors. Take a look at the map. Almost
-everything people come to see is upstairs, on the second floor — the two Botticellis, the
-two Leonardos, a Raphael, a Michelangelo — and all of it sits in just three rooms. The
-first floor, downstairs, is much quieter. That's where Caravaggio is, and people move
-around freely there. So the picture is very unbalanced: three rooms are completely full,
-while the other ninety-five stay almost empty. And the crowd is not one single type. About
-sixty percent are Instagram tourists, there for a selfie; thirty percent are normal
-visitors; ten percent are real art lovers. Please remember that mix — it matters later.
+This is the Uffizi: about five thousand visitors a day through ninety-eight rooms on two
+floors. These are the paintings nearly all of them come for, the two Botticellis, the
+Leonardos, a Raphael, a Michelangelo, all upstairs on the second floor. Downstairs is
+quieter, with Caravaggio. Keep that layout in mind, because the whole problem comes from
+where everyone wants to be.
 
 ---
 
-## 3. The problem and the goal
+## 3. The problem: where RL comes in
 
-So what is the problem here? Everything goes into the same three rooms. That means long
-queues, and the masterpiece rooms get completely packed, while all the other rooms stay
-almost empty. And nobody is coordinating. Every person who pushes into a full Botticelli
-room makes it a little worse for the next one. Economists have a name for this: a
-congestion externality. Our question was whether reinforcement learning could do better.
-We looked at it from two sides — the museum, and the visitor. And that split is really the
-whole shape of our project.
+Here's the problem; the figure makes it brutal. At the daily peak, three rooms, the
+Botticelli, Leonardo and Raphael rooms, run at roughly twice their capacity. The red bars are
+past the line; everything else sits well below. So a few rooms are jammed while most of the
+museum is nearly empty. Our question is whether reinforcement learning can help us understand
+this and simulate a calmer, better-run Uffizi.
 
 ---
 
-## 4. Two streams, one project
+## 4. The plan
 
-So those two sides become two streams of work. The easiest way to tell them apart is one
-question: who are we optimising for? Stream one is the museum's problem — we change the
-museum for everyone. We send the whole sixty-thirty-ten crowd through a full day, and
-compare the museum as it is today with a redesign that makes the crowd spread out: booked
-masterpiece slots, longer opening hours, a small extra charge at busy times. We keep the
-redesign only if welfare goes up and revenue stays safe. And it does: plus thirty-one
-percent welfare, revenue preserved. Stream two is the one we really care about — the
-visitor's problem. Here we keep the museum fixed and look for the single best visitor
-inside it: when to book, which masterpieces to see, how to plan the day.
+The plan has five steps. One: rebuild the Uffizi as a virtual model, every room with its size,
+doorways and a value, because rooms differ: a Botticelli counts for more than a stairwell.
+Two: generate the crowd from real numbers, about sixty percent phone-first tourists, thirty
+percent ordinary, ten percent art lovers; check it matches the real museum, then read off
+revenue and welfare. Three: drop an RL agent on the museum as it is. Four: intervene, keeping
+only changes that hold revenue while lifting welfare. Five: re-run the agents and see who
+gains.
 
 ---
 
-## 5. Foundations: a tabular proof of concept
+## 5. A toy first
 
-Before we tried this on the real museum, we first tested the idea on a small twelve-room
-toy — simple enough to solve exactly. In the toy, the crowd goes up and down with no
-warning. Q-learning finds a smart move we call temporal arbitrage: don't fight the peak, go
-in during the quiet time just around it. Now look at the bars. The two on the left are the
-learners, both close to eighty-three. Every hand-written rule is far below, and four are
-even negative. Here's the surprising part: even random — just choosing by chance, at plus
-thirty-five — beats all four "clever" rules. The worst rule always goes straight to the
-most valuable room, no matter the time, so it reaches Botticelli right at the peak:
-completely wrong about timing. Random at least catches a few quiet moments. So the lesson
-is simple: when you visit matters more than whether you visit — and only learning finds
-this. Last check: Q-learning and Double-Q come out equal, because in a fully predictable
-toy there's no overestimation for Double-Q to fix. Exactly what the theory says.
+Before the real museum, we test on a twelve-room toy small enough to solve exactly. The
+crowds rise and fall with no warning; Q-learning learns to time them: go into a room in the
+lull, not at the peak. The bars show it beats every hand-written rule, some of which actually
+score negative. Q-learning and Double-Q tie, because a deterministic toy has no overestimation
+bias to fix, which is what the theory says.
 
 ---
 
-## 6. Scaling up: deep RL and action masking
+## 6. The toy does not scale
 
-The real museum breaks that table: ninety-eight rooms, around a hundred moves at every
-step, hundreds of state numbers. No table can hold that, so we switch to a neural network,
-MaskablePPO, with PPO and DQN as controls. The idea is action masking. From any room only
-a few moves are legal, yet the network has about a hundred outputs. So we set every illegal
-move to minus infinity before the softmax, which gives it zero probability. No effort is
-wasted on moves that do not exist.
-
----
-
-## 7. As-is versus intervened: why it becomes a booking problem
-
-We leave the toy and put the agent on the full museum, running the same algorithms in two
-worlds. World one is the museum as-is: no reservations, you walk in, taking masterpieces as
-you find them, so with a map the visit is a solved shortest path. World two is the
-intervened museum, our eleven Pigovian measures. The headline one, RAMA, ends walk-in
-access: every masterpiece needs a slot booked days ahead. That rule flips the decision from
-where to walk to when to book. Booking is hard: uncertain, irreversible, delayed.
+The real museum breaks that table: ninety-eight rooms, around a hundred moves at each step,
+hundreds of numbers in the state. A lookup table that big could never fill, so we move to a
+neural net, MaskablePPO, with PPO and DQN as controls. The key trick is masking. From any room
+only a few moves are physically legal, so we set the illegal ones to minus infinity before the
+softmax. The agent never wastes time learning which moves don't exist; they're simply off the
+table.
 
 ---
 
-## 8. The eleven interventions: pricing the externality
+## 7. The museum as it is: the baseline
 
-So what does intervened mean? RAMA is one of eleven Pigovian measures in the redesign.
-Remember the congestion externality from earlier: the fix is to make each visitor feel the
-cost they impose and reward those who spread out. Some shift demand in time, like extended
-hours and quiet-hour discounts. Some shift it in space, like reservations and enriching the
-secondary rooms. Some use price, like peak pricing and a group surcharge. A director's gate
-decides adoption: only if welfare rises and revenue holds. It does, plus thirty-one percent.
-
----
-
-## 9. Result: book early when busier and it pays
-
-And here is the payoff. Under RAMA, both profiles beat their matched as-is, no-booking
-baseline at every crowd level: the art lover gains twenty to thirty-nine percent, the tourist
-a steady thirty-six to thirty-eight. All three masterpieces are secured every time. But look
-at the curve on the right. The lead time the agent chooses rises with the crowd: the busier
-the museum, the earlier it books. We never coded that rule. It emerged from the reward,
-because booking late into a packed museum simply misses the rooms.
+First, the museum as it is today. We calibrate it to the real hours, prices and surcharges,
+then drop our agents on it, where the visitor just walks, no booking. This is the ceiling with
+no change: the art lover scores around five thousand, dropping toward four thousand as the
+rooms fill; the tourist sits near twenty-seven hundred. That's today's Uffizi; every later
+number is measured against it.
 
 ---
 
-## 10. What a visit looks like, on the real floor plan
+## 8. The interventions and the museum-wide payoff
 
-It helps to see a visit. This is the art lover's learned day, eight runs drawn on the real
-Uffizi floor plan, one panel per crowd level. Notice it is a single sensible route. The
-agent enters at room A1, sweeps the second-floor masterpieces, the gold stars, each inside
-its booked window, then takes the staircase down to Caravaggio on the first floor and
-leaves before closing. And every step is a one-hop move to a neighbouring room. There are
-no teleports, just a real walk through a real building.
+Now we redesign. The intervened museum bundles eleven measures, each one charging for the
+crowding a visitor causes: longer hours and quiet-hour discounts on time, reservations and
+richer side rooms on access, peak pricing and a group surcharge on price. The heatmap shows
+the effect: top is today, bottom is all eleven, same scale. The masterpiece bands cool from
+red toward orange; the day spreads over more hours. Welfare is up thirty-one percent with
+revenue held.
+
+---
+
+## 9. After the redesign: a booking problem
+
+The headline intervention is RAMA: masterpieces now need a booked slot, so you can't just walk
+in. That flips the visitor's real decision from where to walk to when to book, one, seven,
+twenty-one or thirty-five days ahead. It's hard because it's uncertain, irreversible and
+delayed. And it pays: the art lover's ceiling climbs from five thousand to seven thousand, the
+tourist's from twenty-seven hundred to thirty-seven hundred, all masterpieces secured. The
+agent even learns to book earlier when the museum is busier, which we never coded.
+
+---
+
+## 10. Two visits: the art lover roams, the tourist beelines
+
+Here's how the two visitors actually move, drawn on the floor plan. The art lover, on top,
+works the whole museum: its trace covers the second floor end to end and fans across the first
+floor too. The normal tourist, on the bottom, does not. After the masterpieces it skips the B
+block and rushes through C and D straight to Caravaggio, then leaves. Same museum, two
+completely different visits.
 
 ---
 
 ## 11. Which algorithm wins and why masking matters
 
-So which algorithm actually wins? MaskablePPO is best or tied in every single cell, stable
-across seeds. Masking earns its keep exactly where the problem is hardest. At the packed
-tourist, unmasked PPO collapses to 2093, below the no-booking baseline of 2680, while
-MaskablePPO holds 3685. At easy crowds the two agree; the gap only opens where precision
-matters. DQN, meanwhile, is fragile and noisy as the crowd grows: taking a max over noisy
-crowd values overestimates, the very bias our deterministic toy did not have.
+Which algorithm got us here? The pale bars are the two no-booking baselines, the coloured ones
+the three booking agents. MaskablePPO, in dark blue, is best or tied everywhere and stable
+across seeds; it's the winner. Unmasked PPO, in orange, collapses at the packed tourist, below
+the baseline, because it wastes effort on illegal moves. Masking only matters at the hardest
+cells, but there it decides the result. DQN, in green, is fragile and noisy: it overestimates
+by taking a max over noisy values.
 
 ---
 
 ## 12. Challenge 1: an unlearnable reward
 
-Those results hid pain; the struggle was the project. Here are the four hardest bugs.
-First, an unlearnable reward. Our earliest agent never left; it squatted in one room
-until closing. The fix we tried first, zeroing all reward when it failed to exit, made
-things worse: an all-or-nothing wipe is flat everywhere, so the gradient is zero and
-nothing points to the door. What worked: a dense egress signal, pressure rising near
-closing and far from an exit, plus a bonus for leaving. Sparse rewards are correct but
-often unlearnable.
+Now the hard parts; the struggle was most of the project. First, an unlearnable reward. Our
+early agent never left; it sat in one room until closing. Zeroing the reward when it failed to
+exit made things worse: the wipe is flat everywhere, so the gradient is zero and nothing
+points to the exit. What worked was a dense signal, pressure rising near
+closing and far from a door, plus a bonus for leaving. Even a correct reward is useless if
+it's flat; gradient descent needs a slope to follow.
 
 ---
 
 ## 13. Challenge 2: it could not see what it was deciding
 
-Second bug: the agent could not see what it was deciding. The rule we wanted, stay until
-satisfied then move on, never stabilised; dwell times wobbled at random. The reason was
-subtle. The right move depended on how much value the visitor had already absorbed from
-the room, a quantity nowhere in the state. A hidden variable. We were quietly solving a
-POMDP, not the clean MDP we assumed. The fix: add a per-room appreciation-progress number
-to the state, so seen enough becomes something the policy can read.
+Second, the agent couldn't see what it was deciding. The rule stay until satisfied then move
+never settled; dwell times wobbled at random. The reason: the right move depended on how much
+the visitor had already gotten out of the room, which wasn't in the state. We'd quietly turned
+it into a POMDP. The fix was a per-room appreciation-progress number, so seen enough is
+something the policy can read. Whatever the best move depends on has to be in the state.
 
 ---
 
 ## 14. Challenge 3: reward shaping that backfired
 
-Third, reward shaping that backfired. Our well-meant penalties had side effects: a boredom
-penalty made the agent loop in circles; a harsh crowd penalty produced a fake art lover who
-skipped the masterpieces. Every term is a new objective to game, reward hacking. Looping
-beat exiting; a crowded Botticelli scored worse than skipping it. So we went minimal: a
-gentle crowd discount so a crowded masterpiece still beats skipping, no boredom penalty,
-satiation alone to stop lingering. Always ask: what is the cheapest way to game it?
+Third, our reward shaping backfired. A boredom penalty made the agent loop in circles; a harsh
+crowd penalty produced a fake art lover that skipped the masterpieces. Every term you add is a
+new thing to game: looping beat exiting, a crowded Botticelli scored worse than just skipping
+it. So we went minimal, a gentle crowd discount so a packed masterpiece still beats skipping,
+no boredom penalty, satiation alone to stop lingering. The agent games every term the laziest
+way it can.
 
 ---
 
 ## 15. Challenge 4: the do-nothing trap and the book-early trick
 
-Fourth, our favourite. Give it a free decline button and both profiles declined all three
-masterpieces; book-early stayed only half learned. The trap is that declining is safe now,
-while booking only pays off later, hundreds of steps away. A classic do-nothing optimum and
-a credit-assignment nightmare. Our fix had two parts. We made always books a type trait, no
-escape hatch, then added an immediate off-pace penalty standing in for the distant cost. A
-small signal now, tracking a far-off reward, made the long lesson learnable. Our best trick.
+Fourth, our favourite. Given a free decline button, both profiles declined all three
+masterpieces; book-early only half learned. Declining is safe right now, while booking only
+pays much later, hundreds of steps away, a classic do-nothing trap. The fix had two parts:
+make always-books a fixed trait with no escape, then add an immediate off-pace penalty
+standing in for that distant cost. A small penalty now, standing in for a cost far in the
+future, was what finally got it booking. Nothing else helped as much.
 
 ---
 
-## 16. The crowd before and after the redesign
+## 16. Conclusion
 
-Now back to stream one and the big picture. This heatmap is the whole museum across the
-whole day. The top panel is the Uffizi as it is today; the bottom is the same museum with
-all eleven interventions, drawn on the same colour scale. Watch the masterpiece bands,
-rooms A9 and A36: they cool from red toward orange as the worst crush drains away; the day
-stretches over more hours instead of spiking at noon. The result: plus thirty-one percent
-welfare, with revenue held flat. Nobody turned away.
+To wrap up. We rebuilt the Uffizi, matched it to the real museum, then used it to ask two
+things: how to redesign the building and how a single visitor should play it. The redesign,
+eleven measures, lifts welfare thirty-one percent with revenue held. The optimal visitor,
+MaskablePPO, books early and beats its old ceiling at every crowd level. And the lesson:
+choosing what the agent decides was far harder than the algorithm itself; masking did more for
+us than any tuning.
 
 ---
 
 ## 17. Thank you
 
-That is our story: from a twelve-room toy, through four hard bugs, to a single optimal
-visitor and a redesigned museum that serves the same crowd better. Thank you. We are happy
-to take your questions; we have a stack of backup slides ready for the details.
+That's the story: from a twelve-room toy, through four hard bugs, to a redesigned museum and
+an optimal visitor inside it. Thank you. We're happy to take questions; there's a stack of
+backup slides if you want the details.
 
 ---
 
@@ -207,19 +187,19 @@ to take your questions; we have a stack of backup slides ready for the details.
 
 These are not narrated in sequence. Each is a one-line answer to a likely question.
 
-- **A1. The three MDPs.** Same five MDP elements in the toy, the as-is walk and RAMA; only
-  the problem, the state encoding and the action screening change.
-- **A2. The as-is state, eight numbers.** What the visitor sees on the planned walk, in
-  natural units, with the example vector at the door A1.
+- **A1. The three MDPs.** Same five MDP elements in the toy, the as-is walk and RAMA; only the
+  problem, the state encoding and the action screening change.
+- **A2. The as-is state, eight numbers.** What the visitor sees on the planned walk, in natural
+  units, with the example vector at the door A1.
 - **A3. The RAMA state, twenty-five numbers.** The booking-task state, grouped; the booking
   screen is the crux.
 - **A4. Actions and masking.** The action space per setting and the masked-softmax formula.
-- **A5. The reward functions.** Exact terms for the toy, the full museum, plus the
-  booking-only off-pace and no-show penalties.
-- **A6. Booking phase and fill curve.** The two-phase episode and the busy-day fill curve:
-  one slot free a day before, eight a month ahead.
-- **A7. Full booking results.** Every number behind the grid, five seeds, mean and std;
-  note the bimodal art lover at maximum crowd.
+- **A5. The reward functions.** Exact terms for the toy, the full museum, plus the booking-only
+  off-pace and no-show penalties.
+- **A6. Booking phase and fill curve.** The two-phase episode and the busy-day fill curve: one
+  slot free a day before, eight a month ahead.
+- **A7. Full booking results.** Every number behind the grid, five seeds, mean and std; note
+  the bimodal art lover at maximum crowd.
 - **A8. Algorithm detail.** The same algorithm chart with the three takeaways spelled out.
 - **A9 / A10. The learned walks.** Baseline versus RAMA on the floor plan, art lover then
   tourist.
@@ -239,5 +219,5 @@ These are not narrated in sequence. Each is a one-line answer to a likely questi
 ---
 
 *Suggested three-way split: one presenter takes the setup (slides 1 to 4), one takes the
-method and results (5 to 11), one takes the challenges and close (12 to 17). Whoever fields
-a question drives to the matching backup slide above.*
+method and results (5 to 11), one takes the challenges and close (12 to 17). Whoever fields a
+question drives to the matching backup slide above.*
