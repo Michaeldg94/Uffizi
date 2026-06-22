@@ -35,6 +35,7 @@ from pathlib import Path
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+import matplotlib.ticker as mticker
 import numpy as np
 from PIL import Image
 
@@ -137,6 +138,18 @@ ALGO_STD = {
     },
 }
 ALGO_ORDER = ["PPO-base", "DQN-base", "PPO-int", "MaskPPO-int", "DQN-int"]
+
+
+def _shared_ymax():
+    """One y-axis ceiling shared by the baseline chart (slide 7) and the booking
+    grid (slide 9), so the art lover and the tourist sit on the same scale across
+    both slides and the two are directly comparable."""
+    vals = [ALGO[p][c][a] + ALGO_STD[p][c][a]
+            for p in ("art", "tourist") for c in CROWDS for a in ALGO_ORDER]
+    vals += [BOOKING[p][c][k] + BOOKING_STD[p][c][k]
+             for p in ("art", "tourist") for c in CROWDS for k in (0, 1)]
+    return (int(max(vals) // 1000) + 1) * 1000
+
 ALGO_COLOR = {"PPO-base": "#B8C4D9", "DQN-base": "#9AA7BD", "PPO-int": "#C0552B",
               "MaskPPO-int": "#1F3A5F", "DQN-int": "#2E8B57"}
 PROFILE_LABEL = {"art": "Art lover", "tourist": "Normal tourist"}
@@ -273,11 +286,9 @@ def g_algo():
                                   dr.get("ablations", []), pngpath("deep_rl_masking_ablation"))
     fig, axes = plt.subplots(1, 2, figsize=(12.5, 4.6), squeeze=False)
     x = np.arange(len(CROWDS)); w = 0.16
-    # one common y-axis for both profiles (and for the baseline chart below), so the
+    # one common y-axis for both profiles (and shared with the booking grid), so the
     # art lover and the tourist sit on the same scale and the panels are comparable.
-    ymax = max(ALGO[p][c][a] + ALGO_STD[p][c][a]
-               for p in ("art", "tourist") for c in CROWDS for a in ALGO_ORDER)
-    ymax = (int(ymax // 1000) + 1) * 1000
+    ymax = _shared_ymax()
     for j, p in enumerate(("art", "tourist")):
         ax = axes[0][j]
         for k, alg in enumerate(ALGO_ORDER):
@@ -379,9 +390,8 @@ def g_booking():
                     fontsize=12, color=ACCENT)
         ax.set_xticks(x); ax.set_xticklabels([CROWD_LABEL[c] for c in CROWDS])
         ax.set_title(PROFILE_LABEL[p]); ax.set_ylabel("points"); ax.grid(axis="y", alpha=0.25)
-        panel_max = max(max(intv[i] + intv_e[i], base[i] + base_e[i]) for i in range(len(CROWDS)))
-        ax.set_ylim(0, panel_max * 1.30)
-        if j == 0:
+        ax.set_ylim(0, _shared_ymax())
+        if j == 1:
             ax.legend(fontsize=11, loc="upper right")
     fig.suptitle("RAMA booking: intervened vs matched baseline (5 seeds, mean $\\pm$ std; "
                  "3/3 masterpieces secured)", y=1.02)
@@ -712,10 +722,55 @@ def g_sweeps():
                                out_path=pngpath("sweep_heterogeneity"))
 
 
+# ===========================================================================
+# GROUP I: learning curves over training (logged per-seed runs, art / 5000)
+# ===========================================================================
+def g_learning_curves():
+    """Deterministic-eval return over training for the art / packed-crowd cell,
+    from the per-seed eval logs in outputs/learning_curves/ (MaskablePPO + DQN,
+    intervened + baseline, 3 seeds). Saved under a fixed name, so it never shifts
+    the numbered figures."""
+    LC = OUT / "learning_curves"
+    if not LC.exists():
+        print("  SKIP learning_curves (no data)"); return
+    arms = [("mppo_int", "MaskablePPO, intervened"),
+            ("mppo_base", "MaskablePPO, no intervention"),
+            ("dqn_int", "DQN, intervened"),
+            ("dqn_base", "DQN, no intervention")]
+    fig, axes = plt.subplots(2, 2, figsize=(12.6, 7.0), squeeze=False)
+    for ax, (arm, title) in zip(axes.flat, arms):
+        files = sorted(LC.glob(f"eval_{arm}_art_5000_seed*.json"))
+        curves = [json.loads(f.read_text()) for f in files]
+        if not curves:
+            ax.set_visible(False); continue
+        L = min(len(d["eval_returns"]) for d in curves)
+        ts = np.array(curves[0]["eval_timesteps"][:L])
+        M = np.array([d["eval_returns"][:L] for d in curves])      # (seeds, L)
+        mean = M.mean(axis=0); sd = M.std(axis=0)
+        for d in curves:
+            ax.plot(ts, d["eval_returns"][:L], color=MUTED, lw=0.8, alpha=0.45)
+        ax.fill_between(ts, mean - sd, mean + sd, color=INK, alpha=0.15)
+        ax.plot(ts, mean, color=INK, lw=2.2)
+        ax.axhline(0, color="#999999", lw=0.7, ls="--")
+        ax.set_title(title); ax.set_xlabel("training steps")
+        ax.set_ylabel("deterministic eval return"); ax.grid(axis="y", alpha=0.25)
+        ax.xaxis.set_major_locator(mticker.MaxNLocator(nbins=4, integer=True))
+        ax.xaxis.set_major_formatter(
+            mticker.FuncFormatter(lambda v, _: "0" if v == 0 else f"{v/1000:g}k"))
+    fig.suptitle("How each algorithm learns: deterministic eval over training "
+                 "(art lover, packed crowd; 3 seeds, mean $\\pm$ std)", y=1.005)
+    fig.tight_layout()
+    for ext in ("png", "pdf"):
+        fig.savefig(FIG / f"eval_learning_curves.{ext}")
+    plt.close(fig)
+    print("  eval_learning_curves", flush=True)
+
+
 # (name, fn, figure_count) in display order -> drives sequential numbering.
 GROUP_SEQ = [("world", g_world, 6), ("museum", g_museum, 2), ("learning", g_learning, 5), ("algorithm", g_algo, 2),
              ("equilibrium", g_equilibrium, 1), ("interventions", g_interventions, 4),
-             ("booking", g_booking, 2), ("maps", g_maps, 8), ("sweeps", g_sweeps, 5)]
+             ("booking", g_booking, 2), ("maps", g_maps, 8), ("sweeps", g_sweeps, 5),
+             ("curves", g_learning_curves, 0)]
 
 
 def main():

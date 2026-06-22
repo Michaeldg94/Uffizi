@@ -155,8 +155,6 @@ to $-\infty$ before the softmax, so it gets exactly zero probability. So no grad
 moves that cannot happen; the agent only ever picks among the legal ones.
 \end{block}
 \vfill
-\[ \pi(a\mid s)=\frac{e^{z_a}\,\mathbf{1}[a\in\mathcal{A}(s)]}{\sum_{b}e^{z_b}\,\mathbf{1}[b\in\mathcal{A}(s)]}. \]
-\vfill
 \end{frame}
 
 % --- 7. The museum as it is (baseline) --------------------------------------
@@ -418,7 +416,7 @@ A two-phase episode (a booking screen, then the walk), grouped:
 \item \emp{Room tail} ($4$): drain, value, density, egress, as in the as-is state.
 \end{itemize}
 \vfill
-\centering \emp{Opening screen: $(1,0,1;\ 0.12,0.38,0.62,1;\ 0;\ \dots)$; the booking screen is the crux.}
+\centering \emp{Opening screen: $(1,0,1;\ 0.12,0.38,0.62,1;\ 0;\ \dots)$; the four slot counts are what the booking decision reads.}
 \end{frame}
 
 % --- A4. Actions and masking ------------------------------------------------
@@ -445,8 +443,8 @@ get exactly zero probability:
 \vfill
 \textbf{Toy, per step.}
 $\dfrac{\text{importance}\times\text{novelty}}{1+\alpha_A\,\text{density}^2}-\text{step cost}$, with
-$\alpha_A=6$, step $0.5$, exit bonus $+15$, no-exit penalty $-50$ (hand-tuned shaping; the relative
-sizes are what matter).
+$\alpha_A=6$, step $0.5$, exit bonus $+15$, no-exit penalty $-50$ (hand-tuned shaping; only the
+relative sizes matter).
 \vfill
 \textbf{Full museum, per minute.} importance $\times$ crowd discount $\times$ novelty (satiation), with
 a gentle crowd $\alpha=0.5$, plus closing-time pressure, a completion bonus and a small step cost.
@@ -521,6 +519,19 @@ grows (a max over noisy values overestimates).
 \end{itemize}
 \end{frame}
 
+% --- A8b. Learning curves over training -------------------------------------
+\begin{frame}{Backup: how each algorithm learns over time}
+\bodydense
+\centering
+\includegraphics[width=0.585\linewidth]{\fig{eval_learning_curves.png}}
+\vfill
+\raggedright
+Deterministic eval (greedy, on the fixed crowds) taken every $5$k steps, for the art lover at the
+packed crowd, $3$ seeds. \emp{MaskablePPO with no intervention} reaches its ceiling early and stays
+there. \emp{DQN} climbs, then \emp{degrades} as overestimation builds on the noisy crowd. \emp{MaskablePPO
+intervened} is unstable across seeds: most stay high, one collapses.
+\end{frame}
+
 % --- A9. Walks, art lover ---------------------------------------------------
 \begin{frame}{Backup: the learned walk, art lover}
 \vfill
@@ -539,7 +550,7 @@ masterpieces (gold stars) are taken in their booked windows, then a descent to C
 \includegraphics[width=0.49\linewidth]{\fig{26_walks_tourist_baseline.png}}\hfill
 \includegraphics[width=0.49\linewidth]{\fig{24_walks_tourist_intervened.png}}\\[10pt]
 {\normalsize Left: as-is. Right: under RAMA. The tourist books all three masterpieces and stays
-rock-stable across seeds at every crowd level.}
+stable across seeds at every crowd level.}
 \vfill
 \end{frame}
 
@@ -608,31 +619,60 @@ no overestimation bias for Double-Q to remove.}
 \vfill
 \end{frame}
 
-% --- A15. Training and evaluation setup -------------------------------------
-\begin{frame}{Backup: training and evaluation setup}
-\normalsize
+% --- A15. Hyperparameters, every arm ----------------------------------------
+\begin{frame}{Backup: hyperparameters, every arm}
+\small
 \vfill
-\begin{columns}[T]
-\begin{column}{0.52\textwidth}
-\textbf{Deep RL (Stable-Baselines3).} \texttt{MlpPolicy} $[128,128]$, Adam LR $3\times10^{-4}$,
-$2048$ steps, batch $256$, $10$ epochs, GAE $\lambda=0.98$, clip $0.2$, entropy $0.01$.
-\begin{itemize}\setlength\itemsep{0.9em}
-\item As-is baselines (PPO): $150$k steps, $\gamma$ $0.995$/$0.997$.
-\item RAMA arms: $100$k steps, $\gamma=0.999$.
-\end{itemize}
-\end{column}
-\begin{column}{0.48\textwidth}
-\textbf{Toy.} tabular Q / Double-Q, $\varepsilon$-greedy, $\gamma=0.99$, $25$k episodes.
-\vspace{1.4em}
+\textbf{Shared by every PPO-family arm} (Stable-Baselines3): \texttt{MlpPolicy} $[128,128]$, Adam,
+$n_{\text{steps}}=2048$, batch $256$, $10$ epochs, GAE $\lambda=0.98$, clip $0.2$, entropy $0.01$.
+\vfill
+\renewcommand{\arraystretch}{1.45}
+\begin{center}
+\begin{tabular}{l l l l l}
+\toprule
+Arm & Net & LR & $\gamma$ & Budget \\
+\midrule
+Toy Q / Double-Q & tabular & $\alpha=0.1$ & $0.99$ & $25$k episodes \\
+PPO baseline (walk) & $[128,128]$ & $3\times10^{-4}$ & $0.995$/$0.997$ & $150$k steps \\
+MaskablePPO (RAMA booking) & $[128,128]$ & $3\times10^{-4}$ & $0.999$ & $100$k steps \\
+PPO intervened (no mask) & $[128,128]$ & $3\times10^{-4}$ & $0.999$ & $100$k steps \\
+DQN (baseline / intervened) & $[128,128]$ & $5\times10^{-4}$ & $0.995$--$0.997$ / $0.999$ & $150$k / $100$k \\
+\bottomrule
+\end{tabular}
+\end{center}
+\vfill
+\footnotesize
+\textbf{Toy Q:} $\varepsilon$ from $1.0$ to a small floor, $\times0.9995$ each episode.
+\textbf{DQN extras:} replay buffer $100$k, target update every $1000$, train-freq $4$, learning-starts
+$2$k, $\varepsilon$ $0.3\to0.05$. \textbf{MaskablePPO} adds the legal-move mask; the booking arms train
+directly at each crowd, with no curriculum.
+\textbf{Scale:} one step $=$ one minute, so a visit is the $720$-minute day plus $4$ booking decisions,
+about $720$ steps; $100$k steps $\approx$ $140$ visits; a $2048$-step rollout $\approx$ $3$.
+\vfill
+\end{frame}
 
-\textbf{Seeds and evaluation}
-\begin{itemize}\setlength\itemsep{0.9em}
-\item $5$ training seeds $\{1,3,7,42,202606\}$.
-\item Eval on $6$ fixed crowds (\texttt{900000} to \texttt{900005}), deterministic, common random numbers.
-\item Crowd levels $500$ / $2500$ / $5000$ visitors a day.
+% --- A15b. What each setting means -------------------------------------------
+\begin{frame}{Backup: what each setting means}
+\small
+\vfill
+\begin{itemize}\setlength\itemsep{0pt}
+\item \textbf{Network / learning rate:} two hidden layers of $128$ units; how big a step the weights
+take on each update.
+\item \textbf{$n_{\text{steps}}$ / batch / epochs:} steps collected before learning ($2048$); the chunk
+size per weight step ($256$); how many times that batch is reused, one full pass $=$ one epoch ($10$).
+\item \textbf{$\gamma$ (discount):} how far ahead reward counts; $0.999$ keeps a payoff hundreds of
+steps away alive, which booking needs.
+\item \textbf{GAE $\lambda=0.98$:} grade a move by what happened later ($\lambda\to1$) or the critic's
+one-step guess ($\lambda\to0$); $0.98$ leans on what really happened.
+\item \textbf{clip $0.2$:} PPO's brake; one update can't shift an action's probability past about $20\%$.
+\item \textbf{entropy $0.01$:} entropy is how undecided the policy is; a small bonus for staying spread
+out, so it explores before committing.
+\item \textbf{DQN replay / target / $\varepsilon$-greedy:} reuse past experience, chase a slow target,
+explore early then exploit.
 \end{itemize}
-\end{column}
-\end{columns}
+\vfill
+\textbf{Seeds and evaluation:} $5$ training seeds $\{1,3,7,42,202606\}$; deterministic eval on $6$ fixed
+common-random-number crowds (\texttt{900000}--\texttt{900005}); crowd levels $500$/$2500$/$5000$ a day.
 \vfill
 \end{frame}
 
@@ -642,19 +682,18 @@ $2048$ steps, batch $256$, $10$ epochs, GAE $\lambda=0.98$, clip $0.2$, entropy 
 \vfill
 \textbf{One visitor, not a crowd.} What we optimise is a single sophisticated visitor's best response to
 a \emp{fixed} crowd. It is not an equilibrium: if every visitor booked this way the good slots would
-fill faster and the fill curve itself would move. Closing that loop, a mean-field game over the whole
-population, is the real next step.
+fill faster and the fill curve itself would move. We did not model that population response, which would
+be a mean-field game.
 \vfill
 \textbf{Fixes we did not run.} Our toy isolates the overestimation that makes DQN crowd-fragile, yet we
-never tried the obvious cure, Double-DQN, on the full task. Two experiments would sharpen the story: a
-fixed-heuristic booker (``always reserve a month out'') as a tougher baseline than no-booking, plus an
-ablation that switches the off-pace penalty off to confirm that booking early is learned rather than
-coaxed.
+never tried Double-DQN, its standard remedy, on the full task. We also did not add a fixed-heuristic
+booker (``always reserve a month out'') as a tougher baseline than no-booking, nor an ablation turning
+the off-pace penalty off to test whether booking early is learned or only forced by that penalty.
 \vfill
-\textbf{What is baked in.} The connoisseur always books (a trait, not a trick to win); lead times are
-four discrete values; the fill curve is calibrated rather than fitted to real booking data; the policy
-is a plain feedforward net carrying appreciation-progress, with $\gamma=0.999$. Welfare, finally, is the
-simulator's own visitor-utility, itself a modelling choice rather than a settled social objective.
+\textbf{What is baked in.} The connoisseur always books (a fixed trait, not a learned choice); lead times
+are four discrete values; the fill curve is calibrated rather than fitted to real booking data; the policy
+is a plain feedforward net carrying appreciation-progress, with $\gamma=0.999$. Welfare is the
+simulator's own visitor-utility, itself a modelling choice and not a settled social objective.
 \vfill
 \end{frame}
 
